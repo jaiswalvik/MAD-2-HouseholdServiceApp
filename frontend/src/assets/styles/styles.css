@@ -1,0 +1,86 @@
+.form-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.form-group label {
+    width: 150px; /* Set width for labels to align them */
+    margin-right: 10px;
+    text-align: left; /* Align text to the left */
+}
+
+.form-group input, .form-group textarea {
+    flex: 1;
+    padding: 5px;
+}
+
+.form-group select {
+    width: 322px; /* Set width for labels to align them */
+    margin-left: 20px;
+    text-align: left; /* Align text to the left */
+}
+
+.form-group button {
+    margin-left: 150px; /* Align submit button with the labels */
+    padding: 8px 16px;
+}
+
+.form-group input[type="file"] {
+    display: inline-block;
+    padding: 8px;
+    width: 70%;
+}
+
+.btn-primary {
+    padding: 5px 10px; /* Adjust padding to decrease button size */
+    font-size: 14px;   /* Optional: Decrease font size */
+}
+
+.btn-sm {
+    padding: 6px 85px; /* Adjust padding for smaller buttons */
+    font-size: 14px;   /* Set font size */
+    border-radius: 36px; /* Rounded corners */
+}
+
+.btn-spacing {
+    margin-right: 10px; /* Adjust spacing as needed */
+}
+
+h3{
+    font-family: 'Arial', sans-serif; /* Choose your desired font */
+    font-size: 32px; /* Adjust size as needed */
+    color: #333; /* Set a text color */
+    text-align: center; /* Center the text */
+    margin-bottom: 20px; /* Space below the heading */
+    text-transform: uppercase; /* Optional: Make the text uppercase */
+}
+.carousel-item img {
+    height: 300px;
+    object-fit: cover;
+}
+/* General styling for text in the carousel */
+.carousel-caption {
+    background-color: transparent; /* Ensures no background color */
+    padding: 10px;
+}
+.carousel-caption h5, .carousel-caption p, .carousel-caption a {
+    color: #fff; /* Normal text color */
+}
+/* Style for text selection */
+::selection {
+    background-color: transparent; /* No background when selected */
+    color: inherit; /* Keep text color */
+}
+
+/* Optional: Specific styling for selected text in carousel */
+.carousel-caption ::selection {
+    background-color: transparent; /* No color when selected */
+    color: #fff; /* Keep white text */
+}
+
+
+
+
+
+
