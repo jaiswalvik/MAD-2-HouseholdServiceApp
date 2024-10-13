@@ -252,33 +252,33 @@ def admin_profile():
     return render_template('admin_profile.html')
 
 # Admin Dashboard
-@app.route('/admin/dashboard')
+@app.route('/admin/dashboard', methods=['POST'])
+@jwt_required()
 def admin_dashboard():
-    """
-    Render the admin dashboard with overview information.
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Renders the admin dashboard with services, professional profiles, customer profiles, service requests, and user information.
-      401:
-        description: Admin user is not authorized to access this page.
-    """
-    if 'admin_user_id' in session:
-        user_dict={}
-        prof_dict ={}
-        service_type={}
-        services = Service.query.all()
-        professional_profile = ProfessionalProfile.query.all()
-        for profile in professional_profile:
-            user_dict[profile.user_id] = User.query.filter_by(id=profile.user_id).first()
-            service_type[profile.user_id] = Service.query.filter_by(id=profile.service_type).first()
-            prof_dict[profile.user_id] = profile
-        service_requests = ServiceRequest.query.all()
-        users = db.session.query(User.id,User.username,User.approve,User.blocked).filter(User.role=='customer').all()
-        return render_template('admin_dashboard.html', services=services, professional_profile=professional_profile, customer_profile=customer_profile, service_requests=service_requests,user_dict=user_dict,service_type=service_type,prof_dict=prof_dict,users=users)
-    return redirect(url_for('admin_login'))
+  claims = get_jwt()
+  if claims['role'] == 'admin':
+    user_dict={}
+    prof_dict ={}
+    service_type={}
+    services = Service.query.all()
+    professional_profile = ProfessionalProfile.query.all()
+    for profile in professional_profile:
+      user_dict[profile.user_id] = User.query.filter_by(id=profile.user_id).first()
+      service_type[profile.user_id] = Service.query.filter_by(id=profile.service_type).first()
+      prof_dict[profile.user_id] = profile
+    service_requests = ServiceRequest.query.all()
+    users = User.query.filter(User.role=='customer').all()
+    return jsonify(
+      services=[service.as_dict() for service in services],
+      professional_profile=[professional.as_dict() for professional in professional_profile],
+      service_requests=[service_request.as_dict() for service_request in service_requests],
+      user_dict= [user.as_dict() for user in user_dict.values()],
+      service_type=[service.as_dict() for service in service_type.values()],
+      prof_dict=[professional.as_dict() for professional in prof_dict.values()],
+      customer=[user.as_dict() for user in users]
+    ), 200 
+  else:
+    return jsonify({"error": "Bad username or password"}), 401
 
 @app.route('/admin/search', methods=['GET', 'POST'])
 def admin_search():

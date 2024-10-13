@@ -15,6 +15,8 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
 
+    def as_dict(self):
+        return {c.key: getattr(self, c.key) for c in self.__table__.columns}
 
 class Service(db.Model):
     __tablename__ = 'services'
@@ -26,6 +28,9 @@ class Service(db.Model):
 
     def __repr__(self):
         return f'<Service {self.name}>'
+    
+    def as_dict(self):
+        return {c.key: getattr(self, c.key) for c in self.__table__.columns}
 
 
 class ServiceRequest(db.Model):
@@ -43,6 +48,8 @@ class ServiceRequest(db.Model):
     def __repr__(self):
         return f'<ServiceRequest {self.id} - {self.service_status}>'
 
+    def as_dict(self):
+        return {c.key: getattr(self, c.key) for c in self.__table__.columns}
 
 class ProfessionalProfile(db.Model):
     __tablename__ = 'professional_profiles'
@@ -60,6 +67,9 @@ class ProfessionalProfile(db.Model):
     def __repr__(self):
         return f'<ProfessionalProfile {self.user_id} - {self.service_type}>'
     
+    def as_dict(self):
+        return {c.key: getattr(self, c.key) for c in self.__table__.columns}
+
 class CustomerProfile(db.Model):
     __tablename__ = 'customer_profiles'
     id = db.Column(db.Integer, primary_key=True)
