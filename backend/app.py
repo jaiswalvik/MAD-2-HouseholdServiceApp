@@ -26,7 +26,7 @@ jwt = JWTManager(app)
 
 # Check if file extension is allowed
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+  return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 db.init_app(app)
 
@@ -34,178 +34,89 @@ first_request = True
 # Initialize the database
 @app.before_request
 def create_tables():
-    global first_request
-    if first_request:
-        db.create_all()
-        first_request = False
+  global first_request
+  if first_request:
+    db.create_all()
+    first_request = False
 
 # Serve downloadable files from a 'files' directory
 @app.route('/download/<string:filename>')
 def download_file(filename):
-    """
-    Download a file from the server.
-    ---
-    tags:
-      - Files
-    parameters:
-      - name: filename
-        in: path
-        type: string
-        required: true
-        description: The name of the file to download.
-    responses:
-      200:
-        description: File downloaded successfully.
-      404:
-        description: File not found.
-    """
-    # Set the directory where your files are located
-    file_directory = os.path.join(app.root_path, 'uploads')
-    
-    # Serve the file from the directory as an attachment
-    return send_from_directory(file_directory, filename, as_attachment=True)
+  # Set the directory where your files are located
+  file_directory = os.path.join(app.root_path, 'uploads')
+  
+  # Serve the file from the directory as an attachment
+  return send_from_directory(file_directory, filename, as_attachment=True)
 
 # Home Route
 @app.route('/')
 def index():
-    """
-    Home page endpoint.
-    ---
-    tags:
-      - Home
-    responses:
-      200:
-        description: Successfully rendered the home page.
-    """
-    return render_template('index.html')
+  return jsonify('Welcome to A-Z Household Services!'), 200 
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register', methods=['POST'])
 def register():
-    """
-    User registration endpoint.
-    ---
-    tags:
-      - User
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          properties:
-            username:
-              type: string
-              example: "john_doe"
-            password:
-              type: string
-              example: "secure_password"
-            role:
-              type: string
-              enum: ["customer", "professional"]
-              example: "customer"
-    responses:
-      200:
-        description: Registration successful, redirecting to login.
-      400:
-        description: Username already exists.
-    """
-    form = RegisterForm()
-    if form.validate_on_submit():
-        existing_user = User.query.filter_by(username=form.username.data).first()
-        if existing_user:
-            flash('Username already exists!', 'danger')
-            return redirect(url_for('register'))
-
-        hashed_password = generate_password_hash(form.password.data, method='pbkdf2:sha256')
-        new_user = User(username=form.username.data, password=hashed_password, role=form.role.data, approve=False, blocked=True)
-        db.session.add(new_user)
-        db.session.commit()
-        flash('Registration successful!', 'success')
-        return redirect(url_for('login'))
-    return render_template('register.html', form=form)
+  if request.method == 'POST':
+    username = request.json.get('username')
+    password = request.json.get('password')
+    role = request.json.get('role')
+    existing_user = User.query.filter_by(username).first()
+    if existing_user:
+      return jsonify({"error": "User already exists!"}), 401
+    if role not in ['customer', 'professional']:
+      return jsonify({"error": "Invalid role!"}), 401
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    new_user = User(username=username, password=hashed_password, role=role, approve=False, blocked=True)
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"message":"Registration successful!"}), 200
+  return jsonify({"error": "Bad request"}), 400
 
 @app.route('/login', methods=['POST'])
 def login():
-    """
-    User login endpoint.
-    ---
-    tags:
-      - User
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          type: object
-          properties:
-            username:
-              type: string
-              example: "john_doe"
-            password:
-              type: string
-              example: "secure_password"
-    responses:
-      200:
-        description: Successfully logged in and redirected based on role.
-      401:
-        description: Invalid credentials.
-    """
-    if request.method == 'POST':
-      username = request.json.get('username')
-      password = request.json.get('password')
-      user = User.query.filter(User.username==username).filter(User.role.in_(['customer','professional'])).first()
-      if user and check_password_hash(user.password, password):
-          if user.role == 'customer':
-              #Check if customer profile is approved
-              if not user.approve:
-                return jsonify({"error": "Your account is not approved yet! Please wait for the admin to approve."}), 401
-              # Check if customer profile is blocked
-              if user.blocked:
-                return jsonify({"error": "Your account is blocked! Please contact the admin."}), 401
-              # Check if the customer profile is incomplete
-              customer_profile = CustomerProfile.query.filter_by(user_id = user.id).first()
-              if not customer_profile:
-                additional_claims = {"user_id": user.id, "role": user.role,"redirect" : "customer_profile"}
-                access_token = create_access_token(username, additional_claims=additional_claims)
-                return jsonify(access_token=access_token)
-              additional_claims = {"user_id": user.id, "role": user.role,"redirect" : "customer_dashboard"}
-              access_token = create_access_token(username, additional_claims=additional_claims)
-              return jsonify(access_token=access_token)  
-          elif user.role == 'professional':
-              # Check if the professional profile is incomplete
-              professional_profile = ProfessionalProfile.query.filter_by(user_id = user.id).first()
-              if not professional_profile:
-                additional_claims = {"user_id": user.id, "role": user.role, "redirect" : "professional_profile"}
-                access_token = create_access_token(username, additional_claims=additional_claims)
-                return jsonify(access_token=access_token)
-              # Check if professional profile is approved
-              if not user.approve:
-                return jsonify({"error": "Your account is not approved yet! Please wait for the admin to approve."}), 401
-              # Check if professional profile is blocked
-              if user.blocked:
-                return jsonify({"error": "Your account is blocked! Please contact the admin."}), 401
-              additional_claims = {"user_id": user.id, "role": user.role, "redirect" : "professional_dashboard"}
-              access_token = create_access_token(username, additional_claims=additional_claims)
-              return jsonify(access_token=access_token)            
-      return jsonify({"error": "Bad username or password"}), 401
+  if request.method == 'POST':
+    username = request.json.get('username')
+    password = request.json.get('password')
+    user = User.query.filter(User.username==username).filter(User.role.in_(['customer','professional'])).first()
+    if user and check_password_hash(user.password, password):
+      if user.role == 'customer':
+        #Check if customer profile is approved
+        if not user.approve:
+          return jsonify({"error": "Your account is not approved yet! Please wait for the admin to approve."}), 401
+        # Check if customer profile is blocked
+        if user.blocked:
+          return jsonify({"error": "Your account is blocked! Please contact the admin."}), 401
+        # Check if the customer profile is incomplete
+        customer_profile = CustomerProfile.query.filter_by(user_id = user.id).first()
+        if not customer_profile:
+          additional_claims = {"user_id": user.id, "role": user.role,"redirect" : "customer_profile"}
+          access_token = create_access_token(username, additional_claims=additional_claims)
+          return jsonify(access_token=access_token)
+        additional_claims = {"user_id": user.id, "role": user.role,"redirect" : "customer_dashboard"}
+        access_token = create_access_token(username, additional_claims=additional_claims)
+        return jsonify(access_token=access_token)  
+      elif user.role == 'professional':
+        # Check if the professional profile is incomplete
+        professional_profile = ProfessionalProfile.query.filter_by(user_id = user.id).first()
+        if not professional_profile:
+          additional_claims = {"user_id": user.id, "role": user.role, "redirect" : "professional_profile"}
+          access_token = create_access_token(username, additional_claims=additional_claims)
+          return jsonify(access_token=access_token)
+        # Check if professional profile is approved
+        if not user.approve:
+          return jsonify({"error": "Your account is not approved yet! Please wait for the admin to approve."}), 401
+        # Check if professional profile is blocked
+        if user.blocked:
+          return jsonify({"error": "Your account is blocked! Please contact the admin."}), 401
+        additional_claims = {"user_id": user.id, "role": user.role, "redirect" : "professional_dashboard"}
+        access_token = create_access_token(username, additional_claims=additional_claims)
+        return jsonify(access_token=access_token)            
+    return jsonify({"error": "Bad username or password"}), 401
+  return jsonify({"error": "Bad request"}), 400
     
 # Logout route for admin
 @app.route('/logout')
 def logout():
-    """
-    User logout endpoint.
-    ---
-    tags:
-      - User
-    responses:
-      200:
-        description: Successfully logged out and redirected to the login page.
-      401:
-        description: User not logged in.
-    """
-    session.pop('user_id', None)
-    flash('Logged out successfully', 'success')
-    return redirect(url_for('login'))
+  return jsonify({"message":"Logged out successfully!"}), 200
 
 # Admin Login Route
 @app.route('/admin/login', methods=['POST'])
@@ -219,37 +130,12 @@ def admin_login():
       access_token = create_access_token(username, additional_claims=additional_claims)
       return jsonify(access_token=access_token)
     return jsonify({"error": "Bad username or password"}), 401
-
-@app.route('/protected', methods=['GET'])
-@jwt_required()
-def protected():
-  claims = get_jwt()
-  if claims['role'] == 'admin':
-    return jsonify(admin_user_id=claims['admin_user_id'],role=claims['role']), 200
-  else:
-    return jsonify(user_id=claims['user_id'],role=claims['role'],redirect=claims['redirect']), 200
+  return jsonify({"error": "Bad request"}), 400
   
-@app.route('/admin/profile', methods=['GET', 'POST'])
+@app.route('/admin/profile', methods=['POST'])
+@jwt_required()
 def admin_profile():
-    """
-    Render the admin profile page. No profile changes can be made.
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Renders the admin profile page.
-      401:
-        description: Admin user is not authorized to access this page.
-    """
-    if not session.get('admin_user_id'):
-        flash('Admin! Please log in..', 'danger')
-        return redirect(url_for('admin_login'))
-    else:
-        user_id = session['admin_user_id']
-        username = User.query.get(user_id).username
-        flash("Admin! You can't make changes to your profile", 'danger')
-    return render_template('admin_profile.html')
+  return jsonify({"Admin! You can't make changes to your profile"}), 200
 
 # Admin Dashboard
 @app.route('/admin/dashboard', methods=['POST'])
@@ -278,7 +164,7 @@ def admin_dashboard():
       customer=[user.as_dict() for user in users]
     ), 200 
   else:
-    return jsonify({"error": "Bad username or password"}), 401
+    return jsonify({"error": "Not an Admin!"}), 401
 
 @app.route('/admin/search', methods=['GET', 'POST'])
 def admin_search():
@@ -1294,10 +1180,6 @@ def get_service_requests_professional(professional_id):
     service_requests = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).join(ProfessionalProfile,ServiceRequest.professional_id==ProfessionalProfile.user_id).filter(ServiceRequest.date_of_completion!=None,ProfessionalProfile.user_id==professional_id).group_by(func.date(ServiceRequest.date_of_completion)).all())
     datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
     return jsonify(datewise_requests)
-
-@app.route('/app/test', methods=['GET'])
-def get_test():
-  return jsonify('Welcome to A-Z Household Services!')
 
 CORS(app)
 swagger = Swagger(app)
