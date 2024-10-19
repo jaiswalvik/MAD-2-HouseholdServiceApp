@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Customer Summary{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Summary</h3>
+            <canvas id="serviceRequests" width="400" height="200"></canvas>
+        </div>
+    </div>
+    <script>
+        async function fetchServiceRequestsCustomer() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/customer/summary/service_requests/{{session.get("user_id")}}');
+                const data = await response.json();
+                
+                // Extract labels and reviews from the response
+                const labels = data.map(item => item.date);
+                const count = data.map(item => item.count);
+                
+                // Call the function to update the doughnut chart
+                updateServiceRequestCustomerChart(labels, count);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+        function updateServiceRequestCustomerChart(labels, data){    
+            var ctx = document.getElementById('serviceRequests').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,  // Dynamic labels (Date)
+                    datasets: [{
+                        label: 'Service Request Summary',
+                        data: data,   // Dynamic data (Count)
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    var value = tooltipItem.raw;
+                                    return 'Count: ' + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+         
+        // Fetch data and update the chart on page load
+        window.onload = function() {
+            fetchServiceRequestsCustomer();
+        };
+    
+        
+    </script>
+{% endblock %}

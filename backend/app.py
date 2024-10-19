@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 from flask_cors import CORS 
 from flasgger import Swagger
 
-app = Flask(__name__)
+app = Flask(__name__,template_folder='../frontend', static_folder='../frontend', static_url_path='/static')
 
 # Configure file upload settings
 app.config['UPLOAD_FOLDER'] = 'uploads/'  # Directory to save files
@@ -51,7 +51,7 @@ def download_file(filename):
 # Home Route
 @app.route('/')
 def index():
-  return jsonify('Welcome to A-Z Household Services!'), 200 
+  return render_template('index.html') 
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -81,10 +81,10 @@ def login():
       if user.role == 'customer':
         #Check if customer profile is approved
         if not user.approve:
-          return jsonify({"error": "Your account is not approved yet! Please wait for the admin to approve."}), 401
+          return jsonify({"category": "danger","message": "Your account is not approved yet! Please wait for the admin to approve."}), 401
         # Check if customer profile is blocked
         if user.blocked:
-          return jsonify({"error": "Your account is blocked! Please contact the admin."}), 401
+          return jsonify({"category": "danger","message": "Your account is blocked! Please contact the admin."}), 401
         # Check if the customer profile is incomplete
         customer_profile = CustomerProfile.query.filter_by(user_id = user.id).first()
         if not customer_profile:
@@ -103,20 +103,29 @@ def login():
           return jsonify(access_token=access_token)
         # Check if professional profile is approved
         if not user.approve:
-          return jsonify({"error": "Your account is not approved yet! Please wait for the admin to approve."}), 401
+          return jsonify({"category": "danger","message": "Your account is not approved yet! Please wait for the admin to approve."}), 401
         # Check if professional profile is blocked
         if user.blocked:
-          return jsonify({"error": "Your account is blocked! Please contact the admin."}), 401
+          return jsonify({"category": "danger","message": "Your account is blocked! Please contact the admin."}), 401
         additional_claims = {"user_id": user.id, "role": user.role, "redirect" : "professional_dashboard"}
         access_token = create_access_token(username, additional_claims=additional_claims)
         return jsonify(access_token=access_token)            
-    return jsonify({"error": "Bad username or password"}), 401
-  return jsonify({"error": "Bad request"}), 400
+    return jsonify({"category": "danger","message": "Bad username or password"}), 401
+  return jsonify({"category": "danger","message": "Bad request"}), 400
     
 # Logout route for admin
 @app.route('/logout')
 def logout():
   return jsonify({"message":"Logged out successfully!"}), 200
+
+@app.route('/get-claims', methods=['GET'])
+@jwt_required()
+def get_claims():
+    # Get the claims from the JWT
+    claims = get_jwt()
+
+    # Return claims (such as role and permissions) in JSON format
+    return jsonify(claims=claims), 200
 
 # Admin Login Route
 @app.route('/admin/login', methods=['POST'])
@@ -129,8 +138,8 @@ def admin_login():
       additional_claims = {"admin_user_id": user.id, "role": user.role}
       access_token = create_access_token(username, additional_claims=additional_claims)
       return jsonify(access_token=access_token)
-    return jsonify({"error": "Bad username or password"}), 401
-  return jsonify({"error": "Bad request"}), 400
+    return jsonify({"category": "danger","message": "Bad username or password"}), 401
+  return jsonify({"category": "danger","message": "Bad request"}), 400
   
 @app.route('/admin/profile', methods=['POST'])
 @jwt_required()
