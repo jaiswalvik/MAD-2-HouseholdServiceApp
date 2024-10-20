@@ -57,14 +57,13 @@ export default {
                             });                
                         if (res.ok) {
                             const data =await res.json();
-                            console.log('Received data:', data.claims);
-                            if (data.role === 'customer' && data.redirect === 'customer_dashboard') {
+                            if (data.claims.role === 'customer' && data.claims.redirect === 'customer_dashboard') {
                                 this.$router.push('/customer/dashboard');
-                            } else if (data.role === 'professional' && data.redirect === 'professional_dashboard') {
+                            } else if (data.claims.role === 'professional' && data.claims.redirect === 'professional_dashboard') {
                                 this.$router.push('/professional/dashboard');
-                            } else if (data.role === 'professional' && data.redirect === 'professional_profile') {
+                            } else if (data.claims.role === 'professional' && data.claims.redirect === 'professional_profile') {
                                 this.$router.push('/professional/profile');
-                            } else if (data.role === 'customer' && data.redirect === 'customer_profile') {
+                            } else if (data.claims.role === 'customer' && data.claims.redirect === 'customer_profile') {
                                 this.$router.push('/customer/profile');
                             }else{
                                 this.message = 'An unexpected error occurred.';

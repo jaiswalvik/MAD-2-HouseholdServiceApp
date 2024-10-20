@@ -59,17 +59,17 @@ def register():
     username = request.json.get('username')
     password = request.json.get('password')
     role = request.json.get('role')
-    existing_user = User.query.filter_by(username).first()
+    existing_user = User.query.filter_by(username=username).first()
     if existing_user:
-      return jsonify({"error": "User already exists!"}), 401
+      return jsonify({"category": "danger","message":"User already exists!"}), 401
     if role not in ['customer', 'professional']:
-      return jsonify({"error": "Invalid role!"}), 401
+      return jsonify({"category": "danger","message":"Invalid role!"}), 401
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     new_user = User(username=username, password=hashed_password, role=role, approve=False, blocked=True)
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({"message":"Registration successful!"}), 200
-  return jsonify({"error": "Bad request"}), 400
+    return jsonify({"category": "success","message":"Registration successful!"}), 200
+  return jsonify({"category": "danger","message":"Bad request"}), 400
 
 @app.route('/login', methods=['POST'])
 def login():

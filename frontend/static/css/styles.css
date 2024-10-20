@@ -10,14 +10,13 @@
     text-align: left; /* Align text to the left */
 }
 
-.form-group input, .form-group textarea {
+.form-group input, .form-group textarea, .form-group select {
     flex: 1;
     padding: 5px;
 }
 
 .form-group select {
     width: 322px; /* Set width for labels to align them */
-    margin-left: 20px;
     text-align: left; /* Align text to the left */
 }
 
