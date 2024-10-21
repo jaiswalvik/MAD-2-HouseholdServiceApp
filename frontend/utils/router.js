@@ -5,7 +5,9 @@ import AdminLoginPage from "../pages/AdminLoginPage.js";
 import AdminDashboardPage from "../pages/AdminDashboardPage.js";
 import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
 import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
-
+import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
+import AdminUpdateServicesPage from "../pages/AdminUpdateServicesPage.js";
+import AdminDeleteServicesPage from "../pages/AdminDeleteServicesPage.js";
 
 const routes = [
     {path : '/', component : Home},
@@ -14,7 +16,10 @@ const routes = [
     {path : '/admin/login', component : AdminLoginPage},
     {path : '/admin/dashboard', component: AdminDashboardPage },
     {path : '/customer/dashboard', component: CustomerDashboardPage },
-    {path : '/professional/dashboard', component: ProfessionalDashboardPage },  
+    {path : '/professional/dashboard', component: ProfessionalDashboardPage },
+    {path : '/admin/services/create_services', component : AdminCreateServicesPage},
+    {path : '/admin/services/update_service/:id',component: AdminUpdateServicesPage,props: true},
+    {path : '/admin/services/delete_service/:id',component: AdminDeleteServicesPage,props: true}, 
     {path : '/logout', component : {
         template : `
         <div>

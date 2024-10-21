@@ -167,9 +167,9 @@ def admin_dashboard():
       services=[service.as_dict() for service in services],
       professional_profile=[professional.as_dict() for professional in professional_profile],
       service_requests=[service_request.as_dict() for service_request in service_requests],
-      user_dict= [user.as_dict() for user in user_dict.values()],
-      service_type=[service.as_dict() for service in service_type.values()],
-      prof_dict=[professional.as_dict() for professional in prof_dict.values()],
+      user_dict={key: user.as_dict() for key, user in user_dict.items()},
+      service_type={key: service.as_dict() for key, service in service_type.items()},
+      prof_dict={key: professional.as_dict() for key, professional in prof_dict.items()},
       customer=[user.as_dict() for user in users]
     ), 200 
   else:

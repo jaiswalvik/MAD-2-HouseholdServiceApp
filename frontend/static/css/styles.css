@@ -77,3 +77,7 @@ h3{
     background-color: transparent; /* No color when selected */
     color: #fff; /* Keep white text */
 }
+
+.navbar-nav {
+    margin-left: auto; /* This will force the nav items to align right */
+}
