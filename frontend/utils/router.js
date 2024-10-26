@@ -3,6 +3,9 @@ import LoginPage from "../pages/LoginPage.js";
 import RegisterPage from "../pages/RegisterPage.js";
 import AdminLoginPage from "../pages/AdminLoginPage.js";
 import AdminDashboardPage from "../pages/AdminDashboardPage.js";
+import AdminProfilePage from "../pages/AdminProfilePage.js";
+import AdminSearchPage from "../pages/AdminSearchPage.js";
+import AdminSummaryPage from "../pages/AdminSummaryPage.js";
 import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
 import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
 import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
@@ -15,6 +18,9 @@ const routes = [
     {path : '/register', component : RegisterPage},
     {path : '/admin/login', component : AdminLoginPage},
     {path : '/admin/dashboard', component: AdminDashboardPage },
+    {path : '/admin/profile', component: AdminProfilePage },
+    {path : '/admin/search', component: AdminSearchPage },
+    {path : '/admin/summary', component: AdminSummaryPage }, 
     {path : '/customer/dashboard', component: CustomerDashboardPage },
     {path : '/professional/dashboard', component: ProfessionalDashboardPage },
     {path : '/admin/services/create_services', component : AdminCreateServicesPage},

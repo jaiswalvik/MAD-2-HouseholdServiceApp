@@ -1,3 +1,4 @@
+
 export default {
     data() {
         return {
@@ -144,7 +145,6 @@ export default {
                     this.professionalProfile = data.professional_profile;
                     this.serviceType = data.service_type;
                     this.userDict = data.user_dict;
-                    console.log(data.customer)
                     this.users = data.customer;
                     this.serviceRequests = data.service_requests;
                     this.profDict = data.prof_dict;

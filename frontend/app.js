@@ -5,7 +5,7 @@ const app = new Vue({
     el : '#app',
     template : `
         <div> 
-            <Navbar v-if="isAuthenticated"> </Navbar>
+            <Navbar v-if="isAuthenticated"></Navbar>
             <router-view> </router-view>
         </div>
     `,
@@ -15,7 +15,7 @@ const app = new Vue({
     router,
     data() {
         return {
-            isAuthenticated: false, 
+            isAuthenticated: false,
         };
     },
     methods: {
@@ -27,5 +27,7 @@ const app = new Vue({
             localStorage.removeItem('token');
             this.$router.push('/');
         }
+    },
+    mounted() {
     }
 })
