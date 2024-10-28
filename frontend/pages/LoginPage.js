@@ -36,53 +36,45 @@ export default {
     methods: {
         async submitLogin() {
             try {
-                const res = await fetch(location.origin + '/login', 
-                    {
-                        method: 'POST', 
-                        headers: {'Content-Type': 'application/json'}, 
-                        body: JSON.stringify({ 'username': this.username, 'password': this.password })
-                    });
+                var res = await fetch(location.origin + '/login', 
+                {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ 'username': this.username, 'password': this.password })
+                });
                 if (res.ok) {
                     const data = await res.json();
-                    // Save the token to localStorage or sessionStorage
-                    localStorage.setItem('token', data.access_token); 
-                    // call the login function
-                    this.$root.login();
-                    // Redirect to differnt dashboard based on user type
-                    try {
-                        const res = await fetch(location.origin + '/get-claims', 
-                            {
-                                method: 'GET', 
-                                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token')}, 
-                            });                
-                        if (res.ok) {
-                            const data =await res.json();
-                            if (data.claims.role === 'customer' && data.claims.redirect === 'customer_dashboard') {
-                                this.$router.push('/customer/dashboard');
-                            } else if (data.claims.role === 'professional' && data.claims.redirect === 'professional_dashboard') {
-                                this.$router.push('/professional/dashboard');
-                            } else if (data.claims.role === 'professional' && data.claims.redirect === 'professional_profile') {
-                                this.$router.push('/professional/profile');
-                            } else if (data.claims.role === 'customer' && data.claims.redirect === 'customer_profile') {
-                                this.$router.push('/customer/profile');
-                            }else{
-                                this.message = 'An unexpected error occurred.';
-                                this.category = 'danger';
-                            }
+                    res = await fetch(location.origin + '/get-claims', 
+                        {
+                            method: 'GET', 
+                            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + data.access_token}, 
+                        });                
+                    if (res.ok) {
+                        const claim_data =await res.json();
+                        this.$root.login(claim_data.claims.role,data.access_token);
+                        if (claim_data.claims.role === 'customer' && claim_data.claims.redirect === 'customer_dashboard') {
+                            this.$router.push('/customer/dashboard');
+                        } else if (claim_data.claims.role === 'professional' && claim_data.claims.redirect === 'professional_dashboard') {
+                            this.$router.push('/professional/dashboard');
+                        } else if (claim_data.claims.role === 'professional' && claim_data.claims.redirect === 'professional_profile') {
+                            this.$router.push('/professional/profile');
+                        } else if (claim_data.claims.role === 'customer' && claim_data.claims.redirect === 'customer_profile') {
+                            this.$router.push('/customer/profile');
                         }else{
                             this.message = 'An unexpected error occurred.';
                             this.category = 'danger';
                         }
-                    } catch (error) {
+                    }else{
                         this.message = 'An unexpected error occurred.';
                         this.category = 'danger';
-                    }        
+                    }                            
                 }else {
                         const errorData = await res.json();  
                         this.message = errorData.message; 
                         this.category = errorData.category; 
                 }                
             } catch (error) {
+                console.log(error)
                 this.message = 'An unexpected error occurred.';
                 this.category = 'danger';
             }

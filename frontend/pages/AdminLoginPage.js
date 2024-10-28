@@ -41,11 +41,7 @@ export default {
                     });                
                 if (res.ok) {
                     const data = await res.json();
-                    // Save the token to localStorage or sessionStorage
-                    localStorage.setItem('token', data.access_token); 
-                    // call the login function
-                    this.$root.login();
-                    // Redirect to the admin dashboard
+                    this.$root.login('admin',data.access_token);
                     this.$router.push('/admin/dashboard');
                 } else {
                     const errorData = await res.json();  
