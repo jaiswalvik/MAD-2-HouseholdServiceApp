@@ -38,9 +38,21 @@ const app = new Vue({
         checkAuthentication() {
             this.isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
             this.userRole = localStorage.getItem('userRole');
+        },
+        handleWindowClose() {
+            localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('token');
         }
     },
     mounted() {
         this.checkAuthentication();
+        if (!this.isAuthenticated && this.$route.path !== '/') {
+            this.$router.replace('/');
+        }
+        window.addEventListener("beforeunload", this.handleWindowClose);
+    },
+    beforeDestroy() {
+        window.removeEventListener("beforeunload", this.handleWindowClose);
     }
 })
