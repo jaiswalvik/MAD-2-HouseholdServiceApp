@@ -113,10 +113,6 @@ def login():
     return jsonify({"category": "danger","message": "Bad username or password"}), 401
   return jsonify({"category": "danger","message": "Bad request"}), 400
     
-# Logout route for admin
-@app.route('/logout')
-def logout():
-  return jsonify({"message":"Logged out successfully!"}), 200
 
 @app.route('/get-claims', methods=['GET'])
 @jwt_required()
@@ -150,362 +146,285 @@ def admin_profile():
 @app.route('/admin/dashboard', methods=['POST'])
 @jwt_required()
 def admin_dashboard():
+  # Verify admin role
   claims = get_jwt()
-  if claims['role'] == 'admin':
-    user_dict={}
-    prof_dict ={}
-    service_type={}
-    services = Service.query.all()
-    professional_profile = ProfessionalProfile.query.all()
-    for profile in professional_profile:
-      user_dict[profile.user_id] = User.query.filter_by(id=profile.user_id).first()
+  if claims['role'] != 'admin':
+    return jsonify({"message": "Not an Admin!", "category": "danger"}), 401
+  
+  # Initialize dictionaries for collecting related data
+  user_dict = {}
+  prof_dict = {}
+  service_type = {}
+
+  # Query required data
+  services = Service.query.all()
+  professional_profiles = ProfessionalProfile.query.all()
+  service_requests = ServiceRequest.query.all()
+  customers = User.query.filter(User.role == 'customer').all()
+
+  # Map user and service details for professional profiles
+  for profile in professional_profiles:
+    user = User.query.filter_by(id=profile.user_id).first()
+    service = Service.query.filter_by(id=profile.service_type).first()
+    user_dict[profile.user_id] = user
+    service_type[profile.user_id] = service
+    prof_dict[profile.user_id] = profile
+
+  # Construct response data in JSON format, adding success message and category
+  return jsonify(
+    message="Admin dashboard data retrieved successfully.",
+    category="success",
+    services=[service.as_dict() for service in services],
+    professional_profiles=[profile.as_dict() for profile in professional_profiles],
+    service_requests=[service_request.as_dict() for service_request in service_requests],
+    user_dict={key: user.as_dict() for key, user in user_dict.items()},
+    service_type={key: service.as_dict() for key, service in service_type.items()},
+    prof_dict={key: profile.as_dict() for key, profile in prof_dict.items()},
+    customers=[customer.as_dict() for customer in customers]
+  ), 200
+
+@app.route('/admin/search', methods=['POST'])
+@jwt_required()
+def admin_search():
+  # Verify if the user is an admin
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+      return jsonify({"category": "danger", "message": "Admin access required for this search"}), 401 
+
+  data = request.get_json()
+  search_type = data.get('search_type')
+  search_term = data.get('search_text', '').strip()
+
+  customers, professionals, services, service_requests = [], [], [], []
+  service_type = {}
+  prof_dict = {}
+  service_dict = {}
+  cust_dict = {}
+
+  # Prepare dictionary of services for professional profiles
+  for profile in ProfessionalProfile.query.all():
       service_type[profile.user_id] = Service.query.filter_by(id=profile.service_type).first()
       prof_dict[profile.user_id] = profile
-    service_requests = ServiceRequest.query.all()
-    users = User.query.filter(User.role=='customer').all()
-    return jsonify(
-      services=[service.as_dict() for service in services],
-      professional_profile=[professional.as_dict() for professional in professional_profile],
-      service_requests=[service_request.as_dict() for service_request in service_requests],
-      user_dict={key: user.as_dict() for key, user in user_dict.items()},
-      service_type={key: service.as_dict() for key, service in service_type.items()},
-      prof_dict={key: professional.as_dict() for key, professional in prof_dict.items()},
-      customer=[user.as_dict() for user in users]
-    ), 200 
-  else:
-    return jsonify({"error": "Not an Admin!"}), 401
 
-@app.route('/admin/search', methods=['GET', 'POST'])
-def admin_search():
-    """
-    Search for customers, professionals, services, or service requests.
-    ---
-    tags:
-      - Admin
-    parameters:
-      - name: search_type
-        in: query
-        required: true
-        type: string
-        enum: [customer, professional, service, service_request]
-        description: Type of entity to search for.
-      - name: search_text
-        in: query
-        required: true
-        type: string
-        description: Text to search for within the specified entity type.
-    responses:
-      200:
-        description: Renders the admin search results page.
-      401:
-        description: Admin user is not authorized to access this page.
-    """
-    if not session.get('admin_user_id'):
-        flash('Admin! Please log in..', 'danger')
-        return redirect(url_for('admin_login'))
-    else:
-        form = SearchForm()
-        customers, professionals, services, service_requests = [], [], [], []
-        service_type={}
-        prof_dict ={}
-        service_dict = {}
-        cust_dict = {}   
-        for profile in ProfessionalProfile.query.all():
-            service_type[profile.user_id] = Service.query.filter_by(id=profile.service_type).first()
-            prof_dict[profile.user_id] = profile
-            
-        if form.validate_on_submit():
-            search_type = form.search_type.data
-            search_term = form.search_text.data.strip()
-            
-            # Perform the appropriate search based on the selection in the dropdown
-            if search_type == 'customer':
-                for service in Service.query.all():
-                    service_dict[service.id] = service
-                for cust in CustomerProfile.query.all():
-                    cust_dict[cust.user_id] = cust
-                service_requests = (ServiceRequest.query.select_from(ServiceRequest).join(CustomerProfile, ServiceRequest.customer_id == CustomerProfile.user_id).filter(or_(CustomerProfile.full_name.ilike(f"%{search_term}%"),CustomerProfile.address.ilike(f"%{search_term}%"),CustomerProfile.pin_code.ilike(f"%{search_term}%"))).all())
-                customers = service_requests
+  # Perform the search based on the search_type
+  if search_type == 'customer':
+      for service in Service.query.all():
+          service_dict[service.id] = service
+      for cust in CustomerProfile.query.all():
+          cust_dict[cust.user_id] = cust
+      service_requests = (
+          ServiceRequest.query
+          .join(CustomerProfile, ServiceRequest.customer_id == CustomerProfile.user_id)
+          .filter(
+              or_(
+                  CustomerProfile.full_name.ilike(f"%{search_term}%"),
+                  CustomerProfile.address.ilike(f"%{search_term}%"),
+                  CustomerProfile.pin_code.ilike(f"%{search_term}%")
+              )
+          )
+          .all()
+      )
+      customers = service_requests
 
-            elif search_type == 'professional':
-                professionals = ProfessionalProfile.query.filter(
-                    (ProfessionalProfile.full_name.ilike(f"%{search_term}%")) |
-                    (ProfessionalProfile.address.ilike(f"%{search_term}%")) 
-                ).all()      
-            elif search_type == 'service':
-                services = Service.query.filter(
-                    Service.name.ilike(f"%{search_term}%") |
-                    Service.description.ilike(f"%{search_term}%") |
-                    Service.service_type.ilike(f"%{search_term}%")
-                ).all()
-            elif search_type == 'service_request':
-                service_requests = ServiceRequest.query.filter(
-                    (ServiceRequest.service_status.ilike(f"%{search_term}%")) | 
-                    (ServiceRequest.remarks.ilike(f"%{search_term}%"))
-                ).all()
-        
-            if not (customers or professionals or services or service_requests):
-                flash("No results found for your search.", "info")
+  elif search_type == 'professional':
+      professionals = ProfessionalProfile.query.filter(
+          or_(
+              ProfessionalProfile.full_name.ilike(f"%{search_term}%"),
+              ProfessionalProfile.address.ilike(f"%{search_term}%")
+          )
+      ).all()
 
-        return render_template('admin_search.html', form=form, 
-                customers=customers, professionals=professionals, 
-                services=services, service_requests=service_requests,service_type=service_type,prof_dict=prof_dict,cust_dict=cust_dict,service_dict=service_dict) 
-                                   
-@app.route('/admin/summary')
+  elif search_type == 'service':
+      services = Service.query.filter(
+          or_(
+              Service.name.ilike(f"%{search_term}%"),
+              Service.description.ilike(f"%{search_term}%"),
+              Service.service_type.ilike(f"%{search_term}%")
+          )
+      ).all()
+
+  elif search_type == 'service_request':
+      service_requests = ServiceRequest.query.filter(
+          or_(
+              ServiceRequest.service_status.ilike(f"%{search_term}%"),
+              ServiceRequest.remarks.ilike(f"%{search_term}%")
+          )
+      ).all()
+
+  # Check if results were found
+  if not (customers or professionals or services or service_requests):
+      return jsonify({"category": "info", "message": "No results found for your search"}), 404
+
+  # Return the search results as JSON
+  return jsonify({
+      "category": "success",
+      "message": "Search completed successfully",
+      "data": {
+          "customers": [customer.to_dict() for customer in customers],
+          "professionals": [professional.to_dict() for professional in professionals],
+          "services": [service.to_dict() for service in services],
+          "service_requests": [request.to_dict() for request in service_requests],
+          "service_type": {key: service.to_dict() for key, service in service_type.items()},
+          "prof_dict": {key: prof.to_dict() for key, prof in prof_dict.items()},
+          "cust_dict": {key: cust.to_dict() for key, cust in cust_dict.items()},
+          "service_dict": {key: service.to_dict() for key, service in service_dict.items()},
+      }
+  }), 200
+
+@app.route('/admin/summary', methods=['GET'])
+@jwt_required()
 def admin_summary():
-    """
-    Render the admin summary page.
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Renders the admin summary page.
-      401:
-        description: User is not authorized to access this page.
-    """
-    if 'admin_user_id' in session:
-        return render_template('admin_summary.html')
-    return redirect(url_for('admin_login'))
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+    return jsonify({"message": "Unauthorized access. Admins only.", "category": "danger"}), 401
+  return jsonify({"message": "Admin summary data retrieved successfully.", "category": "success"}), 200
 
-# Manage User Route
-@app.route('/admin/manage_user/<int:user_id>/<string:field>/<string:value>', methods=['GET', 'POST'])
-def manage_user(user_id,field,value):
-    """
-    Approve/Reject or Block/Unblock a user.
-    ---
-    tags:
-      - Admin
-    parameters:
-      - name: user_id
-        in: path
-        type: integer
-        required: true
-        description: ID of the user to manage.
-      - name: field
-        in: path
-        type: string
-        required: true
-        description: Field to update (approve or blocked).
-      - name: value
-        in: path
-        type: string
-        required: true
-        description: Value to set for the field ('True' or 'False').
-    responses:
-      302:
-        description: Redirects to the admin dashboard after managing the user.
-      401:
-        description: User is not authorized to perform this action.
-    """
-    if not session.get('admin_user_id'):
-        return redirect(url_for('admin_login'))
-    user = User.query.filter_by(id=user_id).first()
-    # Approve/Reject & Block/Unblock professional
-    if user and  field == 'approve':
-        if value == 'False':
-            user.approve = True
-            flash('Professional/Customer approved successfully', 'success')
-        elif value == 'True':
-            user.approve = False
-            flash('Professional/Customer rejected successfully', 'danger')
+@app.route('/admin/manage_user/<int:user_id>/<string:field>/<string:value>', methods=['POST'])
+@jwt_required()
+def manage_user(user_id, field, value):
+  # Check if the user has admin privileges
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+      return jsonify({"message": "Unauthorized access. Admins only.", "category": "danger"}), 401
 
-    if user and field == 'blocked' :
-        if value == 'False':
-            user.blocked = True
-            flash('User blocked successfully', 'danger')
-        elif value == 'True':
-            user.blocked = False
-            flash('User unblocked successfully', 'success')
+  # Query for the user by ID
+  user = User.query.filter_by(id=user_id).first()
+  if not user:
+      return jsonify({"message": "User not found.", "category": "danger"}), 404
 
-    # Save changes to the database
-    db.session.commit()
+  # Approve/Reject and Block/Unblock functionality
+  if field == 'approve':
+      if value.lower() == 'false':
+          user.approve = True
+          message = 'Professional/Customer approved successfully'
+          category = 'success'
+      elif value.lower() == 'true':
+          user.approve = False
+          message = 'Professional/Customer rejected successfully'
+          category = 'danger'
+      else:
+          return jsonify({"message": "Invalid value for 'approve'.", "category": "danger"}), 400
 
-    return redirect(url_for('admin_dashboard'))
+  elif field == 'blocked':
+      if value.lower() == 'false':
+          user.blocked = True
+          message = 'User blocked successfully'
+          category = 'danger'
+      elif value.lower() == 'true':
+          user.blocked = False
+          message = 'User unblocked successfully'
+          category = 'success'
+      else:
+          return jsonify({"message": "Invalid value for 'blocked'.", "category": "danger"}), 400
+  else:
+      return jsonify({"message": "Invalid field specified.", "category": "danger"}), 400
+
+  # Save changes to the database
+  db.session.commit()
+
+  return jsonify({"message": message, "category": category}), 200
 
 # Manage Services Route (CRUD operations)
-@app.route('/admin/services/create_services', methods=['GET', 'POST'])
+@app.route('/admin/services/get/<int:service_id>', methods=['GET'])
+@jwt_required()
+def get_services(service_id):
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+    return jsonify({"category": "danger", "message": "Please login as admin to update service"}), 401 
+  # Fetch the service to be updated
+  service = Service.query.get_or_404(service_id)
+  service_data = {
+        "id": service.id,
+        "service_type": service.service_type,
+        "name": service.name,
+        "description": service.description,
+        "price": service.price
+    }
+  return jsonify(service_data), 200
+
+@app.route('/admin/services/create_services', methods=['POST'])
+@jwt_required()
 def create_services():
-    """
-    Create a new service.
-    ---
-    tags:
-      - Admin
-    parameters:
-      - name: service_type
-        in: formData
-        type: string
-        required: true
-        description: Type of the service.
-      - name: name
-        in: formData
-        type: string
-        required: true
-        description: Name of the service.
-      - name: price
-        in: formData
-        type: number
-        required: true
-        description: Price of the service.
-      - name: description
-        in: formData
-        type: string
-        required: true
-        description: Description of the service.
-    responses:
-      200:
-        description: Successfully created a new service.
-      302:
-        description: Redirects to the admin dashboard after creating the service.
-    """
-    if not session.get('admin_user_id'):
-        flash('Please log in to complete your profile.', 'danger')
-        return redirect(url_for('admin_login'))
-    
-    form = ServiceForm()
-    
-    # Create Service
-    if form.validate_on_submit():
-        new_service = Service(
-            service_type=form.service_type.data,
-            name=form.name.data,
-            price=form.price.data,
-            description=form.description.data
-        )
-        db.session.add(new_service)
-        flash('Service created successfully', 'success')
-        db.session.commit()
-        return redirect(url_for('admin_dashboard'))
-    return render_template('create_services.html', form=form)
+  claims = get_jwt()
+  
+  if claims['role'] != 'admin':
+    return jsonify({"category": "danger","message": "Please login as admin to create service"}), 401 
+  data = request.get_json()
+  
 
-# Update Services Route (CRUD operations)
-@app.route('/admin/services/update_service/<int:service_id>', methods=['GET', 'POST'])
-def update_services(service_id):
-    """
-    Update an existing service by ID.
-    ---
-    tags:
-      - Admin
-    parameters:
-      - name: service_id
-        in: path
-        type: integer
-        required: true
-        description: ID of the service to be updated.
-      - name: service_type
-        in: formData
-        type: string
-        required: true
-        description: Type of the service.
-      - name: name
-        in: formData
-        type: string
-        required: true
-        description: Name of the service.
-      - name: price
-        in: formData
-        type: number
-        required: true
-        description: Price of the service.
-      - name: description
-        in: formData
-        type: string
-        required: true
-        description: Description of the service.
-    responses:
-      200:
-        description: Successfully updated the service.
-      404:
-        description: Service not found.
-      302:
-        description: Redirects to the admin dashboard after updating the service.
-    """
-    if not session.get('admin_user_id'):
-        flash('Please log in to complete your profile.', 'danger')
-        return redirect(url_for('admin_login'))
-    service = Service.query.get_or_404(service_id)
-    form = ServiceForm(obj=service)
+  if not data:
+    return jsonify({"category": "danger", "message": "Invalid input data"}), 401
+  
+  required_fields = ["service_type", "name", "price", "description"]
+  for field in required_fields:
+    if field not in data:
+      return jsonify({"category": "danger", "message": f"'{field}' is a required field"}), 400
+  try:
+    new_service = Service(
+    service_type=data['service_type'],
+      name=data['name'],
+      price=data['price'],
+      description=data['description']
+    )
+    db.session.add(new_service)
+    db.session.commit()
+    return jsonify({"category": "success", "message": "Service created successfully"}), 200
+  except Exception as e:
+    db.session.rollback()
+    return jsonify({"category": "danger", "message": "An error occurred while creating the service"}), 500
     
-    # Update Service
-    if form.validate_on_submit():
-        service.id = service_id
-        service.service_type = form.service_type.data
-        service.name = form.name.data
-        service.price = form.price.data
-        service.description = form.description.data
-        flash('Service updated successfully', 'success')
-        db.session.commit()
-        return redirect(url_for('admin_dashboard'))
-    return render_template('create_services.html', form=form,service=service,editing=True)
+# Update Services Route (REST API for updating a service)
+@app.route('/admin/services/update/<int:service_id>', methods=['PUT'])
+@jwt_required()
+def update_service(service_id):
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+    return jsonify({"category": "danger", "message": "Please login as admin to update service"}), 401 
 
-# Handle delete operation
-@app.route('/admin/services/delete_service/<int:service_id>', methods=['GET', 'POST'])
-def delete_services(service_id):
-    """
-    Delete a specific service by ID.
-    ---
-    tags:
-      - Admin
-    parameters:
-      - name: service_id
-        in: path
-        type: integer
-        required: true
-        description: ID of the service to be deleted.
-    responses:
-      200:
-        description: Successfully deleted the service.
-      404:
-        description: Service not found.
-      302:
-        description: Redirects to the admin dashboard after deletion.
-    """
+  # Fetch the service to be updated
+  service = Service.query.get_or_404(service_id)
+
+  # Extract JSON data from the request
+  data = request.get_json()
+  if not data:
+    return jsonify({"category": "danger", "message": "Invalid input data"}), 400
+
+  # Update the service attributes if present in the JSON data
+  try:
+    service.service_type = data.get('service_type', service.service_type)
+    service.name = data.get('name', service.name)
+    service.price = data.get('price', service.price)
+    service.description = data.get('description', service.description)
+
+    db.session.commit()
+    return jsonify({"category": "success", "message": "Service updated successfully"}), 200
+  except Exception as e:
+    db.session.rollback()
+    return jsonify({"category": "danger", "message": "An error occurred while updating the service"}), 500
+
+# Delete Service Route 
+@app.route('/admin/services/delete/<int:service_id>', methods=['DELETE'])
+@jwt_required()
+def delete_service(service_id):
+    claims = get_jwt()
+    if claims['role'] != 'admin':
+        return jsonify({"category": "danger", "message": "Please login as admin to delete service"}), 401 
+
+    # Fetch the service to delete
     service_to_delete = Service.query.get(service_id)
-    if service_to_delete:
+    if not service_to_delete:
+        return jsonify({"category": "danger", "message": "Service not found"}), 404
+
+    try:
         db.session.delete(service_to_delete)
         db.session.commit()
-        flash('Service deleted successfully', 'success')
-    return redirect(url_for('admin_dashboard'))
-
-# Logout route for admin
-@app.route('/admin/logout')
-def admin_logout():
-    """
-    Log out the admin user.
-    ---
-    tags:
-      - Admin
-    responses:
-      200:
-        description: Successfully logged out the admin user.
-      302:
-        description: Redirects to the admin login page.
-    """
-    session.pop('admin_user_id', None)
-    flash('Logged out successfully', 'success')
-    return redirect(url_for('admin_login'))
+        return jsonify({"category": "success", "message": "Service deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"category": "danger", "message": "An error occurred while deleting the service"}), 500
 
 @app.route('/customer/profile', methods=['GET', 'POST'])
 def customer_profile():
-    """
-    Retrieve and update the customer's profile.
-    ---
-    tags:
-      - Customer
-    parameters:
-      - name: user_id
-        in: session
-        type: integer
-        required: true
-        description: "ID of the logged-in customer."
-    responses:
-      200:
-        description: Renders the customer profile form.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-      201:
-        description: Customer profile updated successfully.
-    """
     if not session.get('user_id'):
         flash('Please log in to complete your profile.', 'danger')
         return redirect(url_for('login'))

@@ -24,8 +24,7 @@ const routes = [
     {path : '/customer/dashboard', component: CustomerDashboardPage },
     {path : '/professional/dashboard', component: ProfessionalDashboardPage },
     {path : '/admin/services/create_services', component : AdminCreateServicesPage},
-    {path : '/admin/services/update_service/:id',component: AdminUpdateServicesPage,props: true},
-    {path : '/admin/services/delete_service/:id',component: AdminDeleteServicesPage,props: true}, 
+    {path : '/admin/services/update/:id',component: AdminCreateServicesPage,props: route => ({ editing: true, id: route.params.id })},
     {path : '/logout', component : {
         template : `
         <div>

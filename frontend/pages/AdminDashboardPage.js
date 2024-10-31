@@ -34,8 +34,8 @@ export default {
                             <td>{{ service.name }}</td>
                             <td>{{ service.price }}</td>
                             <td>
-                                <router-link :to="'/admin/services/update_service/' + service.id" class="btn btn-warning">Edit</router-link>
-                                <router-link :to="'/admin/services/delete_service/' + service.id" class="btn btn-danger">Delete</router-link>
+                                <router-link :to="'/admin/services/update/' + service.id" class="btn btn-warning">Edit</router-link>
+                                <button @click="deleteService(service.id)" class="btn btn-danger">Delete</button>
                             </td>
                         </tr>
                     </tbody>
@@ -142,17 +142,43 @@ export default {
                 if (res.ok) {
                     const data = await res.json();
                     this.services = data.services;
-                    this.professionalProfile = data.professional_profile;
+                    this.professionalProfile = data.professional_profiles;
                     this.serviceType = data.service_type;
                     this.userDict = data.user_dict;
-                    this.users = data.customer;
+                    this.users = data.customers;
                     this.serviceRequests = data.service_requests;
                     this.profDict = data.prof_dict;
                 } else {
+                    res.json().then(data => {
+                        console.log(data);
+                    });
                     console.log("Error"); 
                 }                
             } catch (error) {
                 console.log("Error");
+            }
+        },
+        async deleteService(serviceId) {
+            const confirmed = confirm("Are you sure you want to delete this service?");
+            if (!confirmed) return;
+    
+            try {
+                const response = await fetch(`/admin/services/delete/${serviceId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (response.ok) {
+                    alert("Service deleted successfully!");
+                    this.services = this.services.filter(service => service.id !== serviceId);
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.message || "Failed to delete service.");
+                }
+            } catch (error) {
+                console.error("An error occurred:", error);
+                alert("An error occurred while deleting the service.");
             }
         }
     }
