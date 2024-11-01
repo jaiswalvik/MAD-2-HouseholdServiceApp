@@ -9,8 +9,6 @@ import AdminSummaryPage from "../pages/AdminSummaryPage.js";
 import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
 import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
 import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
-import AdminUpdateServicesPage from "../pages/AdminUpdateServicesPage.js";
-import AdminDeleteServicesPage from "../pages/AdminDeleteServicesPage.js";
 
 const routes = [
     {path : '/', component : Home},

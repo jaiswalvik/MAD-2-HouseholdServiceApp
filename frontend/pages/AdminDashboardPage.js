@@ -63,14 +63,19 @@ export default {
                             <td>{{ professional.reviews }}</td>
                             <td><a :href="'/download/' + professional.filename">{{ professional.filename }}</a></td>
                             <td>
-                                <router-link :to="'/admin/manage_user/' + professional.user_id + '/approve/' + userDict[professional.user_id].approve" 
-                                    :class="userDict[professional.user_id].approve ? 'btn btn-secondary' : 'btn btn-success'">
+                                <button 
+                                    @click="toggleApproval(professional.user_id)" 
+                                    :class="userDict[professional.user_id].approve ? 'btn btn-secondary' : 'btn btn-success'"
+                                >
                                     {{ userDict[professional.user_id].approve ? 'Reject' : 'Approve' }}
-                                </router-link>
-                                <router-link :to="'/admin/manage_user/' + professional.user_id + '/blocked/' + userDict[professional.user_id].blocked" 
-                                    :class="userDict[professional.user_id].blocked ? 'btn btn-success' : 'btn btn-danger'">
+                                </button>
+
+                                <button 
+                                    @click="toggleBlock(professional.user_id)" 
+                                    :class="userDict[professional.user_id].blocked ? 'btn btn-success' : 'btn btn-danger'"
+                                >
                                     {{ userDict[professional.user_id].blocked ? 'Unblock' : 'Block' }}
-                                </router-link>
+                                </button>
                             </td>
                         </tr>
                     </tbody>
@@ -86,18 +91,23 @@ export default {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="user in users" :key="user[0]">
+                        <tr v-for="user in users" :key="user.id">
                             <td>{{ user.id }}</td>
                             <td>{{ user.username }}</td>
                             <td>
-                                <router-link :to="'/admin/manage_user/' + user[0] + '/approve/' + user[2]" 
-                                    :class="user[2] ? 'btn btn-secondary' : 'btn btn-success'">
-                                    {{ user[2] ? 'Reject' : 'Approve' }}
-                                </router-link>
-                                <router-link :to="'/admin/manage_user/' + user[0] + '/blocked/' + user[3]" 
-                                    :class="user[3] ? 'btn btn-success' : 'btn btn-danger'">
-                                    {{ user[3] ? 'Unblock' : 'Block' }}
-                                </router-link>
+                                <button 
+                                    @click="toggleCustomerApproval(user)" 
+                                    :class="user.approve ? 'btn btn-secondary' : 'btn btn-success'"
+                                >
+                                    {{ user.approve ? 'Reject' : 'Approve' }}
+                                </button>
+
+                                <button 
+                                    @click="toggleCustomerBlock(user)" 
+                                    :class="user.blocked ? 'btn btn-success' : 'btn btn-danger'"
+                                >
+                                    {{ user.blocked ? 'Unblock' : 'Block' }}
+                                </button>
                             </td>
                         </tr>
                     </tbody>
@@ -180,6 +190,87 @@ export default {
                 console.error("An error occurred:", error);
                 alert("An error occurred while deleting the service.");
             }
-        }
+        },
+        async toggleApproval(userId) {
+            try {
+                const newApprovalStatus = !this.userDict[userId].approve;
+                const response = await fetch(`/admin/manage_user/${userId}/approve/${this.userDict[userId].approve}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (response.ok) {
+                    this.userDict[userId].approve = newApprovalStatus;
+                } else {
+                    const errorData = await response.json();
+                    console.log(errorData.message || "An error occurred while updating approval status.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        },
+    
+        async toggleBlock(userId) {
+            try {
+                const newBlockStatus = !this.userDict[userId].blocked;
+                const response = await fetch(`/admin/manage_user/${userId}/blocked/${this.userDict[userId].blocked}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (response.ok) {
+                    this.userDict[userId].blocked = newBlockStatus;
+                } else {
+                    const errorData = await response.json();
+                    console.log(errorData.message || "An error occurred while updating block status.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        },
+        async toggleCustomerApproval(user) {
+            try {
+                const newApprovalStatus = !user.approve;
+                const response = await fetch(`/admin/manage_user/${user.id}/approve/${user.approve}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (response.ok) {
+                    user.approve = newApprovalStatus;
+                } else {
+                    const errorData = await response.json();
+                    console.log(errorData.message || "An error occurred while updating approval status.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        },
+        async toggleCustomerBlock(user) {
+            try {
+                const newBlockStatus = !user.blocked;
+                const response = await fetch(`/admin/manage_user/${user.id}/blocked/${user.blocked}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (response.ok) {
+                    user.blocked = newBlockStatus;
+                } else {
+                    const errorData = await response.json();
+                    console.log(errorData.message || "An error occurred while updating block status.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }, 
     }
 };
