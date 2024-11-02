@@ -140,7 +140,7 @@ def admin_login():
 @app.route('/admin/profile', methods=['POST'])
 @jwt_required()
 def admin_profile():
-  return jsonify({"Admin! You can't make changes to your profile"}), 200
+  return jsonify({"message":"Admin! You can't make changes to your profile","category": "danger"}), 200
 
 # Admin Dashboard
 @app.route('/admin/dashboard', methods=['POST'])
