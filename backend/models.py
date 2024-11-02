@@ -80,4 +80,7 @@ class CustomerProfile(db.Model):
 
     def __repr__(self):
         return f'<CustomerProfile {self.full_name} - {self.pin_code}>'
+
+    def as_dict(self):
+        return {c.key: getattr(self, c.key) for c in self.__table__.columns}
     

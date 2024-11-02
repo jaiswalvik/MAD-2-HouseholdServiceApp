@@ -260,14 +260,14 @@ def admin_search():
       "category": "success",
       "message": "Search completed successfully",
       "data": {
-          "customers": [customer.to_dict() for customer in customers],
-          "professionals": [professional.to_dict() for professional in professionals],
-          "services": [service.to_dict() for service in services],
-          "service_requests": [request.to_dict() for request in service_requests],
-          "service_type": {key: service.to_dict() for key, service in service_type.items()},
-          "prof_dict": {key: prof.to_dict() for key, prof in prof_dict.items()},
-          "cust_dict": {key: cust.to_dict() for key, cust in cust_dict.items()},
-          "service_dict": {key: service.to_dict() for key, service in service_dict.items()},
+          "customers": [customer.as_dict() for customer in customers],
+          "professionals": [professional.as_dict() for professional in professionals],
+          "services": [service.as_dict() for service in services],
+          "service_requests": [request.as_dict() for request in service_requests],
+          "service_type": {key: service.as_dict() for key, service in service_type.items()},
+          "prof_dict": {key: prof.as_dict() for key, prof in prof_dict.items()},
+          "cust_dict": {key: cust.as_dict() for key, cust in cust_dict.items()},
+          "service_dict": {key: service.as_dict() for key, service in service_dict.items()},
       }
   }), 200
 
