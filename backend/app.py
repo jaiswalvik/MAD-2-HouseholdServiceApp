@@ -963,151 +963,61 @@ def update_request_status(status,request_id):
 
 # Define an API endpoint to return the reviews data
 @app.route('/admin/summary/reviews', methods=['GET'])
+@jwt_required()
 def get_reviews():
-    """
-    Get reviews for all professionals.
-    ---
-    tags:
-      - Admin
-    
-    responses:
-      200:
-        description: A list of professionals and their reviews.
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              full_name:
-                type: string
-              reviews:
-                type: string
-    """
-    professionals = ProfessionalProfile.query.with_entities(ProfessionalProfile.full_name,ProfessionalProfile.reviews).all()
-    reviews_data = [{"full_name": p.full_name, "reviews": p.reviews} for p in professionals]
-    return jsonify(reviews_data)
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+    return jsonify({"message": "Not an Admin!", "category": "danger"}), 401
+  professionals = ProfessionalProfile.query.with_entities(ProfessionalProfile.full_name,ProfessionalProfile.reviews).all()
+  reviews_data = [{"full_name": p.full_name, "reviews": p.reviews} for p in professionals]
+  return jsonify(reviews_data)
 
 @app.route('/admin/summary/service_requests', methods=['GET'])
+@jwt_required()
 def get_service_requests():
-    """
-    Get summary of service requests grouped by completion date.
-    ---
-    tags:
-      - Admin
-    
-    responses:
-      200:
-        description: A list of date-wise service request counts.
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              date:
-                type: string
-                format: date
-              count:
-                type: integer
-    """
-    service_requests = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).filter(ServiceRequest.date_of_completion!=None).group_by(func.date(ServiceRequest.date_of_completion)).all())
-    datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
-    return jsonify(datewise_requests)
+  claims = get_jwt()
+  if claims['role'] != 'admin':
+    return jsonify({"message": "Not an Admin!", "category": "danger"}), 401
+  service_requests = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).filter(ServiceRequest.date_of_completion!=None).group_by(func.date(ServiceRequest.date_of_completion)).all())
+  datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
+  return jsonify(datewise_requests)
 
 @app.route('/customer/summary/service_requests/<int:customer_id>', methods=['GET'])
+@jwt_required()
 def get_service_requests_customer(customer_id):
-    """
-    Get summary of service requests for a specific customer grouped by completion date.
-    ---
-
-    tags:
-      - Customer
-    
-    parameters:
-      - name: customer_id
-        in: path
-        type: integer
-        required: true
-        description: The ID of the customer
-    responses:
-      200:
-        description: A list of date-wise service request counts for the customer.
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              date:
-                type: string
-                format: date
-              count:
-                type: integer
-    """
-    service_requests_customer = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).filter(ServiceRequest.date_of_completion!=None,ServiceRequest.customer_id==customer_id).group_by(func.date(ServiceRequest.date_of_completion)).all())
-    datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests_customer]   
-    return jsonify(datewise_requests)
+  claims = get_jwt()
+  if claims['role'] != 'customer':
+    return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
+  if claims['user_id'] != customer_id:
+    return jsonify({"message": "Unauthorized access. Access to own data only.", "category": "danger"}), 401
+  service_requests_customer = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).filter(ServiceRequest.date_of_completion!=None,ServiceRequest.customer_id==customer_id).group_by(func.date(ServiceRequest.date_of_completion)).all())
+  datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests_customer]   
+  return jsonify(datewise_requests)
 
 @app.route('/professional/summary/reviews/<int:professional_id>', methods=['GET'])
+@jwt_required()
 def get_reviews_professional(professional_id):
-    """
-    Get reviews for a specific professional.
-    ---
-    tags:
-        - Professional
-
-    parameters:
-      - name: professional_id
-        in: path
-        type: integer
-        required: true
-        description: The ID of the professional
-    responses:
-      200:
-        description: A list of the professional's reviews.
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              full_name:
-                type: string
-              reviews:
-                type: string
-    """
-    professionals = ProfessionalProfile.query.with_entities(ProfessionalProfile.full_name,ProfessionalProfile.reviews).filter(ProfessionalProfile.user_id==professional_id).all()
-    reviews_data = [{"full_name": p.full_name, "reviews": p.reviews} for p in professionals]
-    return jsonify(reviews_data)
+  claims = get_jwt()
+  if claims['role'] != 'professional':
+    return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
+  if claims['user_id'] != professional_id:
+    return jsonify({"message": "Unauthorized access. Access to own data only.", "category": "danger"}), 401
+  professionals = ProfessionalProfile.query.with_entities(ProfessionalProfile.full_name,ProfessionalProfile.reviews).filter(ProfessionalProfile.user_id==professional_id).all()
+  reviews_data = [{"full_name": p.full_name, "reviews": p.reviews} for p in professionals]
+  return jsonify(reviews_data)
 
 @app.route('/professional/summary/service_requests/<int:professional_id>', methods=['GET'])
+@jwt_required()
 def get_service_requests_professional(professional_id):
-    """
-    Get summary of service requests for a specific professional grouped by completion date.
-    ---
-    tags:
-        - Professional
+  claims = get_jwt()
+  if claims['role'] != 'professional':
+    return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
+  if claims['user_id'] != professional_id:
+    return jsonify({"message": "Unauthorized access. Access to own data only.", "category": "danger"}), 401
     
-    parameters:
-      - name: professional_id
-        in: path
-        type: integer
-        required: true
-        description: The ID of the professional
-    responses:
-      200:
-        description: A list of date-wise service request counts for the professional.
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              date:
-                type: string
-                format: date
-              count:
-                type: integer
-    """
-    service_requests = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).join(ProfessionalProfile,ServiceRequest.professional_id==ProfessionalProfile.user_id).filter(ServiceRequest.date_of_completion!=None,ProfessionalProfile.user_id==professional_id).group_by(func.date(ServiceRequest.date_of_completion)).all())
-    datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
-    return jsonify(datewise_requests)
+  service_requests = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).join(ProfessionalProfile,ServiceRequest.professional_id==ProfessionalProfile.user_id).filter(ServiceRequest.date_of_completion!=None,ProfessionalProfile.user_id==professional_id).group_by(func.date(ServiceRequest.date_of_completion)).all())
+  datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
+  return jsonify(datewise_requests)
 
 CORS(app)
 swagger = Swagger(app)

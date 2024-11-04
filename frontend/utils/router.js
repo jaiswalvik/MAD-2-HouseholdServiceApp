@@ -6,9 +6,11 @@ import AdminDashboardPage from "../pages/AdminDashboardPage.js";
 import AdminProfilePage from "../pages/AdminProfilePage.js";
 import AdminSearchPage from "../pages/AdminSearchPage.js";
 import AdminSummaryPage from "../pages/AdminSummaryPage.js";
-import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
-import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
 import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
+import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
+import CustomerSummaryPage from "../pages/CustomerSummaryPage.js";
+import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
+import ProfessionalSummaryPage from "../pages/ProfessionalSummaryPage.js";
 
 const routes = [
     {path : '/', component : Home},
@@ -20,7 +22,9 @@ const routes = [
     {path : '/admin/search', component: AdminSearchPage },
     {path : '/admin/summary', component: AdminSummaryPage }, 
     {path : '/customer/dashboard', component: CustomerDashboardPage },
+    {path : '/customer/summary', component: CustomerSummaryPage },
     {path : '/professional/dashboard', component: ProfessionalDashboardPage },
+    {path : '/professional/summary', component: ProfessionalSummaryPage },
     {path : '/admin/services/create_services', component : AdminCreateServicesPage},
     {path : '/admin/services/update/:id',component: AdminCreateServicesPage,props: route => ({ editing: true, id: route.params.id })},
     {path : '/logout', component : {

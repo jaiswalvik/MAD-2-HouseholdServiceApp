@@ -40,11 +40,14 @@ export default {
                             <router-link to="/professional/dashboard" class="nav-link">Home</router-link>
                         </li>
                         <li class="nav-item">
-                            <router-link to="/professional/requests" class="nav-link">Requests</router-link>
-                        </li>
-                        <li class="nav-item">
                             <router-link to="/professional/profile" class="nav-link">Profile</router-link>
                         </li>
+                        <li class="nav-item">
+                            <router-link to="/professional/search" class="nav-link">Search</router-link>
+                        </li>
+                        <li class="nav-item">
+                            <router-link to="/professional/summary" class="nav-link">Summary</router-link>
+                        </li>                        
                     </template>
                     <!-- Customer Links -->
                     <template v-if="isCustomer">
@@ -52,10 +55,13 @@ export default {
                             <router-link to="/customer/dashboard" class="nav-link">Home</router-link>
                         </li>
                         <li class="nav-item">
-                            <router-link to="/customer/services" class="nav-link">Services</router-link>
+                            <router-link to="/customer/profile" class="nav-link">Profile</router-link>
                         </li>
                         <li class="nav-item">
-                            <router-link to="/customer/history" class="nav-link">History</router-link>
+                            <router-link to="/customer/search" class="nav-link">Search</router-link>
+                        </li>
+                        <li class="nav-item">
+                            <router-link to="/customer/summary" class="nav-link">Summary</router-link>
                         </li>
                     </template>
                     <!-- Logout Link (Common to All) -->

@@ -3,7 +3,7 @@ export default {
       <div class="container">
         <div class="row">
           <div class="col-md-12 text-center">        
-            <h3 class="mt-5">Admin Summary</h3>
+            <h3 class="mt-5">Professional Summary</h3>
           </div>
         </div>
         <div class="row">
@@ -27,7 +27,23 @@ export default {
     methods: {
       async fetchReviewsData() {
         try {
-          const response = await fetch(`${location.origin}/admin/summary/reviews`, {
+          // First fetch user ID via claims
+          const claimsResponse = await fetch(`${location.origin}/get-claims`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+  
+          if (!claimsResponse.ok) {
+            console.error('Error fetching claims:', claimsResponse.statusText);
+            return;
+          }
+  
+          const claimData = await claimsResponse.json();
+          const userId = claimData.claims.user_id;  
+          const response = await fetch(`${location.origin}/professional/summary/reviews/${userId}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -83,7 +99,23 @@ export default {
       },
       async fetchServiceRequests() {
         try {
-          const response = await fetch(`${location.origin}/admin/summary/service_requests`, {
+          // First fetch user ID via claims
+          const claimsResponse = await fetch(`${location.origin}/get-claims`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+  
+          if (!claimsResponse.ok) {
+            console.error('Error fetching claims:', claimsResponse.statusText);
+            return;
+          }
+  
+          const claimData = await claimsResponse.json();
+          const userId = claimData.claims.user_id;  
+          const response = await fetch(`${location.origin}/professional/summary/service_requests/${userId}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
