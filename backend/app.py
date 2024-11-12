@@ -778,59 +778,34 @@ def professional_profile():
         return redirect(url_for('professional_dashboard'))    
     return render_template('professional_profile.html', form=form)
 
-@app.route('/professional/dashboard')
+@app.route('/professional/dashboard', methods=['GET','POST'])
+@jwt_required()  
 def professional_dashboard():
-    """
-    Render the professional dashboard with active service requests and services.
-    ---
-    tags:
-      - Professional
-    responses:
-      200:
-        description: Renders the professional dashboard page with active service requests and services.
-        schema:
-          type: object
-          properties:
-            service_requests:
-              type: array
-              items:
-                type: object
-                description: List of active service requests for the professional.
-            services:
-              type: array
-              items:
-                type: object
-                description: List of services related to the professional's requests.
-            cust_dict:
-              type: object
-              description: Dictionary of customer profiles keyed by user ID.
-            service_dict:
-              type: object
-              description: Dictionary of services keyed by service ID.
-            service_requests_closed:
-              type: array
-              items:
-                type: object
-                description: List of closed service requests for the professional.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-    """
-    if 'user_id' in session:
-        professional_id = session['user_id']
-        service_requests = ServiceRequest.query.filter_by(professional_id=professional_id,service_status='requested').all()
-        service_requests_closed = ServiceRequest.query.filter(ServiceRequest.professional_id==professional_id,ServiceRequest.service_status != 'requested').all()
-        serviceIdList = []    
-        for request in service_requests:
-            serviceIdList.append(request.service_id)
-        services = Service.query.filter(Service.id.in_(serviceIdList)).all()
-        cust_dict = {}
-        service_dict = {}
-        for service in Service.query.all():
-            service_dict[service.id] = service
-        for cust in CustomerProfile.query.all():
-            cust_dict[cust.user_id] = cust
-        return render_template('professional_dashboard.html', service_requests=service_requests, services=services,cust_dict=cust_dict,service_dict=service_dict,service_requests_closed=service_requests_closed)
-    return redirect(url_for('login'))
+  claims = get_jwt()
+  if claims['role'] == 'professional':
+    professional_id = claims['user_id']
+    service_requests = ServiceRequest.query.filter_by(professional_id=professional_id,service_status='requested').all()
+    service_requests_closed = ServiceRequest.query.filter(ServiceRequest.professional_id==professional_id,ServiceRequest.service_status != 'requested').all()
+    serviceIdList = []    
+    for request in service_requests:
+      serviceIdList.append(request.service_id)
+    services = Service.query.filter(Service.id.in_(serviceIdList)).all()
+    cust_dict = {}
+    service_dict = {}
+    for service in Service.query.all():
+      service_dict[service.id] = service
+    for cust in CustomerProfile.query.all():
+      cust_dict[cust.user_id] = cust
+    return jsonify(
+      message="Admin dashboard data retrieved successfully.",
+      category="success",
+      services=[service.as_dict() for service in services],
+      service_requests=[service_request.as_dict() for service_request in service_requests],  
+      cust_dict={key: cust.as_dict() for key, cust in cust_dict.items()},
+      service_dict={key: service.as_dict() for key, service in service_dict.items()},
+      service_requests_closed=[service_requests_closed.as_dict() for service_requests_closed in service_requests_closed]
+    )
+  return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
 
 @app.route('/professional/search',methods=['GET', 'POST'])
 def professional_search():
