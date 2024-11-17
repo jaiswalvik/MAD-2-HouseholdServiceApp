@@ -8,6 +8,7 @@ import AdminSearchPage from "../pages/AdminSearchPage.js";
 import AdminSummaryPage from "../pages/AdminSummaryPage.js";
 import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
 import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
+import CustomerProfilePage from "../pages/CustomerProfilePage.js";
 import CustomerSummaryPage from "../pages/CustomerSummaryPage.js";
 import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
 import ProfessionalSummaryPage from "../pages/ProfessionalSummaryPage.js";
@@ -22,6 +23,7 @@ const routes = [
     {path : '/admin/search', component: AdminSearchPage },
     {path : '/admin/summary', component: AdminSummaryPage }, 
     {path : '/customer/dashboard', component: CustomerDashboardPage },
+    {path : '/customer/profile', component: CustomerProfilePage },
     {path : '/customer/summary', component: CustomerSummaryPage },
     {path : '/professional/dashboard', component: ProfessionalDashboardPage },
     {path : '/professional/summary', component: ProfessionalSummaryPage },

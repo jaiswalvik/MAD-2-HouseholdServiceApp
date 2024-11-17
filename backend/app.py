@@ -424,35 +424,47 @@ def delete_service(service_id):
         return jsonify({"category": "danger", "message": "An error occurred while deleting the service"}), 500
 
 @app.route('/customer/profile', methods=['GET', 'POST'])
+@jwt_required()
 def customer_profile():
-    if not session.get('user_id'):
-        flash('Please log in to complete your profile.', 'danger')
-        return redirect(url_for('login'))
-    
-    user_id = session['user_id']
-    customer = CustomerProfile.query.filter_by(user_id=user_id).first()
-    form = CustomerProfileForm(obj=customer)
-    form.user_id.data = user_id
-    form.user_name.data = User.query.get(user_id).username
-    
-    if form.validate_on_submit():
-        if customer:
-            customer.full_name = form.full_name.data
-            customer.address = form.address.data
-            customer.pin_code = form.pin_code.data
-        else:
-            new_customer_profile = CustomerProfile(
-                user_id = form.user_id.data,
-                full_name = form.full_name.data,
-                address = form.address.data,
-                pin_code = form.pin_code.data
-            )            
-            db.session.add(new_customer_profile)
-        db.session.commit()
-        flash('Customer Profile updated successfully!', 'success')
-        return redirect(url_for('customer_dashboard'))
-    return render_template('customer_profile.html', form=form)
+  # Get user_id from JWT
+  claims = get_jwt()
+  if claims['role'] != 'customer':
+    return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
+  user_id = claims['user_id']
 
+  # Fetch the customer profile if it exists
+  customer = CustomerProfile.query.filter_by(user_id=user_id).first()
+
+  if request.method == 'GET':
+    # Respond with customer profile data if available, otherwise send empty profile
+    profile_data = {
+      "user_id": user_id,
+      "username": User.query.get(user_id).username,
+      "full_name": customer.full_name if customer else "",
+      "address": customer.address if customer else "",
+      "pin_code": customer.pin_code if customer else ""
+    }
+    return jsonify(profile_data), 200
+  elif request.method == 'POST':
+    data = request.json
+    # Validate required fields
+    if not data.get("full_name") or not data.get("address") or not data.get("pin_code"):
+      return jsonify({"message":"Missing required fields: full_name, address, or pin_code.","category":"danger"}), 400
+    # Update existing customer profile or create a new one
+    if customer:
+      customer.full_name = data["full_name"]
+      customer.address = data["address"]
+      customer.pin_code = data["pin_code"]
+    else:
+      new_customer_profile = CustomerProfile(
+          user_id=user_id,
+          full_name=data["full_name"],
+          address=data["address"],
+          pin_code=data["pin_code"]
+      )
+      db.session.add(new_customer_profile)
+    db.session.commit()
+    return jsonify({"message": "Customer Profile updated successfully!","category":"success"}), 200
 
 # Customer Dashboard
 @app.route('/customer/dashboard', methods=['GET', 'POST'])
@@ -543,24 +555,6 @@ def customer_search():
             if not (service_professional):
                 flash("No results found for your search.", "info")
         return render_template('customer_search.html', form=form,service_professional=service_professional)      
-
-@app.route('/customer/summary')
-def customer_summary():
-    """
-    Get the customer summary page.
-    ---
-    tags:
-      - Customer
-    responses:
-      200:
-        description: Renders the customer summary page.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-    """
-    if 'user_id' in session:
-        return render_template('customer_summary.html')
-    return redirect(url_for('login'))
-
 
 @app.route('/customer/create_service_request/<int:service_id>', methods=['GET', 'POST'])
 def create_service_request(service_id):
