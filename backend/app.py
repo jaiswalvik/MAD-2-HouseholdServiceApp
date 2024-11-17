@@ -503,58 +503,45 @@ def customer_dashboard():
     return redirect(url_for('login'))
 
 @app.route('/customer/search', methods=['GET', 'POST'])
+@jwt_required()
 def customer_search():
-    """
-    Search for service professionals based on address, pin code, or service name.
-    ---
-    tags:
-      - Customer
-    parameters:
-      - name: search_type
-        in: formData
-        type: string
-        required: true
-        description: "The type of search to perform (e.g., address, pin code, service name)."
-      - name: search_text
-        in: formData
-        type: string
-        required: true
-        description: "The text to search for based on the selected search type."
-    responses:
-      200:
-        description: Renders the customer search results page with the professionals found.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-      400:
-        description: A flash message indicating no results were found for the search.
-    """
-    if not session.get('user_id'):
-        flash('Please log in..', 'danger')
-        return redirect(url_for('logn'))
-    else:
-        form = CustomerSearchForm()
-        service_professional = []
-        if form.validate_on_submit():
-            search_type = form.search_type.data
-            search_term = form.search_text.data.strip()
-
-            service_professional =ProfessionalProfile.query.select_from(ProfessionalProfile).join(Service, ProfessionalProfile.service_type == Service.id).filter(
-                or_(
-                    ProfessionalProfile.address.ilike(f"%{search_term}%"),  # Search by address
-                    ProfessionalProfile.pin_code.ilike(f"%{search_term}%"),  # Search by pin code
-                    Service.name.ilike(f"%{search_term}%")  # Search by service name
-                )
-            ).with_entities(
-                ProfessionalProfile.pin_code,  # Professional's name
-                ProfessionalProfile.address,  # Professional's address
-                Service.name,  # Service name
-                Service.description, # Service description
-                Service.price  # Service base price
-            ).all()
-
-            if not (service_professional):
-                flash("No results found for your search.", "info")
-        return render_template('customer_search.html', form=form,service_professional=service_professional)      
+  claims = get_jwt()
+  if claims['role'] != 'customer':
+    return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
+  data = request.json
+  service_professional = []
+  search_type = data.get('search_type')
+  search_term = data.get('search_text').strip()
+  service_professional= ProfessionalProfile.query.select_from(ProfessionalProfile).join(Service, ProfessionalProfile.service_type == Service.id).filter(
+  or_(
+      ProfessionalProfile.address.ilike(f"%{search_term}%"),  # Search by address
+      ProfessionalProfile.pin_code.ilike(f"%{search_term}%"),  # Search by pin code
+      Service.name.ilike(f"%{search_term}%")  # Search by service name
+      )).with_entities(
+                        ProfessionalProfile.pin_code,  # Professional's name
+                        ProfessionalProfile.address,  # Professional's address
+                        Service.name,  # Service name
+                        Service.description, # Service description
+                        Service.price  # Service base price
+                      ).all()
+  if not service_professional:
+    return jsonify({"message":"No results found for your search.","category":"danger"}),400
+  return jsonify({
+      "category": "success",
+      "message": "Search completed successfully",
+      "data": {
+        "service_professional": [
+          {
+              "pin_code": row[0],
+              "address": row[1],
+              "service_name": row[2],
+              "service_description": row[3],
+              "service_price": row[4]
+          }
+          for row in service_professional
+        ]          
+      }
+  }), 200
 
 @app.route('/customer/create_service_request/<int:service_id>', methods=['GET', 'POST'])
 def create_service_request(service_id):
@@ -988,7 +975,7 @@ def get_service_requests_professional(professional_id):
   datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
   return jsonify(datewise_requests)
 
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 swagger = Swagger(app)
 
 if __name__ == '__main__':
