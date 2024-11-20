@@ -640,124 +640,81 @@ def close_service_request(request_id):
     return render_template('service_remarks.html',form=form)
 
 @app.route('/professional/profile', methods=['GET', 'POST'])
+@jwt_required()
 def professional_profile():
-    """
-    View and update professional profile information.
-    ---
-    tags:
-      - Professional
-    parameters:
-      - name: user_id
-        in: formData
-        type: integer
-        required: true
-        description: "The ID of the user accessing the profile."
-      - name: full_name
-        in: formData
-        type: string
-        required: true
-        description: "The full name of the professional."
-      - name: service_type
-        in: formData
-        type: string
-        required: true
-        description: "The type of service provided by the professional."
-      - name: experience
-        in: formData
-        type: integer
-        required: true
-        description: "Years of experience in the service industry."
-      - name: address
-        in: formData
-        type: string
-        required: true
-        description: "The address of the professional."
-      - name: pin_code
-        in: formData
-        type: string
-        required: true
-        description: "The pin code for the professional's address."
-      - name: file
-        in: formData
-        type: file
-        required: false
-        description: "An optional profile image or document (image or PDF) to upload."
-    responses:
-      200:
-        description: Renders the professional profile update page.
-        schema:
-          type: object
-          properties:
-            form:
-              type: object
-              description: The form for updating the professional profile.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-      201:
-        description: Profile updated successfully.
-      400:
-        description: Invalid file format or other validation errors.
-    """
-    if not session.get('user_id'):
-        flash('Please log in to complete your profile.', 'danger')
-        return redirect(url_for('login'))
-    
-    user_id = session['user_id']
-    professional = ProfessionalProfile.query.filter_by(user_id=user_id).first()
-    form = ProfessionalProfileForm(obj=professional)
-    form.user_id.data = user_id
-    form.user_name.data = User.query.get(user_id).username
+  # Get user_id from JWT
+  claims = get_jwt()
+  if claims['role'] != 'professional':
+    return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
+  user_id = claims['user_id']
 
-    if form.validate_on_submit():
-        if professional:
-            professional.full_name = form.full_name.data
-            professional.service_type = form.service_type.data
-            professional.experience = form.experience.data
-            professional.address = form.address.data
-            professional.pin_code = form.pin_code.data
-            file = form.file.data
-            if file and allowed_file(file.filename):
-                # Secure the filename and save it to the UPLOAD_FOLDER
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                professional.filename = file.filename
-                professional.uploaded_at = db.func.current_timestamp() 
-            else:
-                flash('Invalid file format! Please upload only images and PDFs.', 'danger')
-                return redirect(url_for('professional_profile',form=form))
-            db.session.commit()
-            flash('Profile updated successfully!', 'success')
+  # Fetch the professional profile if it exists
+  professional = ProfessionalProfile.query.filter_by(user_id=user_id).first()
+
+  if request.method == 'GET':
+    # Respond with professional profile data if available, otherwise send empty profile
+    profile_data = {
+        "user_id": user_id,
+        "username": User.query.get(user_id).username,
+        "full_name": professional.full_name if professional else "",
+        "service_type": professional.service_type if professional else "",
+        "experience": professional.experience if professional else "",
+        "address": professional.address if professional else "",
+        "pin_code": professional.pin_code if professional else "",
+        "filename": professional.filename if professional else "",
+        "reviews": professional.reviews if professional else 0
+    }
+    return jsonify(profile_data), 200
+
+  elif request.method == 'POST':
+    data = request.json
+    # Validate required fields
+    required_fields = ["full_name", "service_type", "experience", "address", "pin_code"]
+    missing_fields = [field for field in required_fields if not data.get(field)]
+    if missing_fields:
+        return jsonify({
+            "message": f"Missing required fields: {', '.join(missing_fields)}.",
+            "category": "danger"
+        }), 400
+
+    # Handle file upload
+    if 'file' in request.files:
+        file = request.files['file']
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         else:
-            # Handle file upload
-            file = form.file.data
-            if file and allowed_file(file.filename):
-                # Secure the filename and save it to the UPLOAD_FOLDER
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            return jsonify({
+                "message": "Invalid file format! Please upload only images and PDFs.",
+                "category": "danger"
+            }), 400
+    else:
+        filename = professional.filename if professional else None
 
-                # Save file metadata and other form data to the database
-                
-                new_professional_profile = ProfessionalProfile(
-                    user_id = form.user_id.data,
-                    full_name = form.full_name.data,
-                    filename = filename,
-                    service_type = form.service_type.data,
-                    experience = form.experience.data,
-                    address = form.address.data,
-                    pin_code = form.pin_code.data
-                )            
-                db.session.add(new_professional_profile)
-                db.session.commit()
-                flash('Profile updated successfully!', 'success')
-                user = User.query.filter_by(id=user_id).first()
-                if user.blocked or not user.approve:
-                    return redirect(url_for('login'))
-                return redirect(url_for('professional_dashboard'))
-            else:
-                flash('Invalid file format! Please upload only images and PDFs.', 'danger')
-                return redirect(url_for('professional_profile'))
-        return redirect(url_for('professional_dashboard'))    
-    return render_template('professional_profile.html', form=form)
+    # Update existing professional profile or create a new one
+    if professional:
+        professional.full_name = data["full_name"]
+        professional.service_type = data["service_type"]
+        professional.experience = data["experience"]
+        professional.address = data["address"]
+        professional.pin_code = data["pin_code"]
+        professional.filename = filename  # Update file name if uploaded
+    else:
+        new_professional_profile = ProfessionalProfile(
+            user_id=user_id,
+            full_name=data["full_name"],
+            service_type=data["service_type"],
+            experience=data["experience"],
+            address=data["address"],
+            pin_code=data["pin_code"],
+            filename=filename  # Save file name if uploaded
+        )
+        db.session.add(new_professional_profile)
+
+    db.session.commit()
+
+    return jsonify({"message": "Professional Profile updated successfully!", "category": "success"}), 200
+
 
 @app.route('/professional/dashboard', methods=['GET','POST'])
 @jwt_required()  
@@ -789,77 +746,54 @@ def professional_dashboard():
   return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
 
 @app.route('/professional/search',methods=['GET', 'POST'])
+@jwt_required()
 def professional_search():
-    """
-    Search for service requests as a professional.
-    ---
-    tags:
-      - Professional
-    parameters:
-      - name: search_type
-        in: formData
-        type: string
-        required: true
-        description: "The type of search to perform (date, location, or pin)."
-        enum: ['date', 'location', 'pin']
-      - name: search_text
-        in: formData
-        type: string
-        required: true
-        description: "The search term to filter service requests."
-    responses:
-      200:
-        description: Renders the professional search results page with service requests.
-        schema:
-          type: object
-          properties:
-            form:
-              type: object
-              description: The search form used for filtering.
-            service_requests:
-              type: array
-              items:
-                type: object
-                description: List of service requests matching the search criteria.
-            cust_dict:
-              type: object
-              description: Dictionary of customer profiles keyed by user ID.
-            service_dict:
-              type: object
-              description: Dictionary of services keyed by service ID.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-      404:
-        description: If no results are found for the search query.
-    """
-    if not session.get('user_id'):
-        flash('Please log in..', 'danger')
-        return redirect(url_for('login'))
-    else:
-        form = ProfessionalSearchForm()
-        professional_id = session['user_id']
-        service_requests = []
-        cust_dict = {}
-        service_dict = {}
-        
-        if form.validate_on_submit():
-            search_type = form.search_type.data
-            search_term = form.search_text.data.strip()
-            for service in Service.query.all():
-                service_dict[service.id] = service
-            for cust in CustomerProfile.query.all():
-                cust_dict[cust.user_id] = cust        
-                
-            if search_type == 'date':
-                service_requests = ServiceRequest.query.filter(ServiceRequest.date_of_request.ilike(f"%{search_term}%"), ServiceRequest.professional_id == professional_id).all()
-            elif search_type == 'location':
-                service_requests = ServiceRequest.query.select_from(ServiceRequest).join(CustomerProfile, ServiceRequest.customer_id == CustomerProfile.user_id).filter(CustomerProfile.address.ilike(f"%{search_term}%"),ServiceRequest.professional_id == professional_id).all()    
-            elif search_type == 'pin':
-                service_requests = ServiceRequest.query.select_from(ServiceRequest).join(CustomerProfile, ServiceRequest.customer_id == CustomerProfile.user_id).filter(CustomerProfile.pin_code.ilike(f"%{search_term}%"),ServiceRequest.professional_id == professional_id).all()
-            if not (service_requests):
-                flash("No results found for your search.", "info")
-        return render_template('professional_search.html', form=form,service_requests=service_requests,cust_dict=cust_dict,service_dict=service_dict)  
-    
+  claims = get_jwt()
+  if claims['role'] != 'professional':
+    return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
+
+  professional_id = claims['user_id']
+  service_requests = []
+  cust_dict = {}
+  service_dict = {}
+  data = request.json
+  search_type = data.get('search_type')
+  search_term = data.get('search_text').strip()
+  for service in Service.query.all():
+    service_dict[service.id] = service
+  for cust in CustomerProfile.query.all():
+    cust_dict[cust.user_id] = cust        
+      
+  if search_type == 'date':
+    service_requests = ServiceRequest.query.filter(ServiceRequest.date_of_request.ilike(f"%{search_term}%"), ServiceRequest.professional_id == professional_id).all()
+  elif search_type == 'location':
+    service_requests = ServiceRequest.query.select_from(ServiceRequest).join(CustomerProfile, ServiceRequest.customer_id == CustomerProfile.user_id).filter(CustomerProfile.address.ilike(f"%{search_term}%"),ServiceRequest.professional_id == professional_id).all()    
+  elif search_type == 'pin':
+    service_requests = ServiceRequest.query.select_from(ServiceRequest).join(CustomerProfile, ServiceRequest.customer_id == CustomerProfile.user_id).filter(CustomerProfile.pin_code.ilike(f"%{search_term}%"),ServiceRequest.professional_id == professional_id).all()
+  if not (service_requests):
+    return jsonify({"message":"No results found for your search.", "category": "danger"}),400
+  # Build the response data
+  response_data = []
+  for req in service_requests:
+    customer = cust_dict.get(req.customer_id)
+    service = service_dict.get(req.service_id)
+    response_data.append({
+        "customer_name": customer.full_name if customer else "Unknown",
+        "service_name": service.name if service else "Unknown",
+        "service_description": service.description if service else "Unknown",
+        "service_price": service.price if service else "N/A",
+        "status": req.service_status,
+        "start_date": req.date_of_request.strftime('%Y-%m-%d') if req.date_of_request else "N/A",
+        "remarks": req.remarks if req.remarks else "No remarks"
+    })
+  return jsonify({
+      "category": "success",
+      "message": "Search completed successfully",
+      "data": {
+          "service_requests": response_data
+      }
+  }), 200
+
 @app.route('/professional/summary')
 def professional_summary():
     """

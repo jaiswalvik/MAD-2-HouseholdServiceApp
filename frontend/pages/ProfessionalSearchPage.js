@@ -28,8 +28,9 @@ export default {
               <div class="form-group">
                 <label for="search_type">Search Type</label>
                 <select v-model="form.search_type" id="search_type" class="form-control" required>
-                  <option value="service">Service</option>
-                  <option value="customer_name">Customer Name</option>
+                  <option value="date">Date</option>
+                  <option value="location">Location</option>
+                  <option value="pin">PIN</option>
                 </select>
               </div>
               <div class="form-group">
@@ -82,7 +83,7 @@ export default {
     data() {
       return {
         form: {
-          search_type: "",
+          search_type: "location",
           search_text: "",
         },
         errors: {
@@ -109,7 +110,7 @@ export default {
   
           if (res.ok) {
             const data = await res.json();
-            this.searchResults = data.results || [];
+            this.searchResults = data.data?.service_requests || [];
             this.messages.push({ category: "success", text: data.message });
           } else {
             const errorData = await res.json();

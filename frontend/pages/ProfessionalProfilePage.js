@@ -131,7 +131,43 @@ export default {
         errors: {}, // Validation errors
       };
     },
+    mounted() {
+      this.fetchProfileData(); // Fetch data when the component mounts
+    },
     methods: {
+      // Fetch the professional profile data from the server
+      async fetchProfileData() {
+        try {
+          const response = await fetch('/professional/profile', {
+            method: 'GET',
+            headers: {
+              Authorization: 'Bearer ' + localStorage.getItem('token'),
+            },
+          });
+  
+          const result = await response.json();
+  
+          if (response.ok) {
+            // Populate the form with the fetched data
+            this.form.user_name = result.username;
+            this.form.full_name = result.full_name;
+            this.form.service_type = result.service_type;
+            this.form.experience = result.experience;
+            this.form.address = result.address;
+            this.form.pin_code = result.pin_code;
+          } else {
+            this.messages.push({
+              category: result.category || 'danger',
+              text: result.message || 'An error occurred while fetching profile data.',
+            });
+          }
+        } catch (error) {
+          this.messages.push({
+            category: 'danger',
+            text: 'An unexpected error occurred. Please try again later.',
+          });
+        }
+      },
       handleFileUpload(event) {
         this.form.file = event.target.files[0]; // Store the uploaded file
       },
