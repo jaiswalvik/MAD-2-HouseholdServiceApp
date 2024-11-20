@@ -12,6 +12,8 @@ import CustomerProfilePage from "../pages/CustomerProfilePage.js";
 import CustomerSearchPage from "../pages/CustomerSearchPage.js";
 import CustomerSummaryPage from "../pages/CustomerSummaryPage.js";
 import ProfessionalDashboardPage from "../pages/ProfessionalDashboardPage.js";
+import ProfessionalProfilePage from "../pages/ProfessionalProfilePage.js";
+import ProfessionalSearchPage from "../pages/ProfessionalSearchPage.js";
 import ProfessionalSummaryPage from "../pages/ProfessionalSummaryPage.js";
 
 const routes = [
@@ -28,6 +30,8 @@ const routes = [
     {path : '/customer/search', component: CustomerSearchPage }, 
     {path : '/customer/summary', component: CustomerSummaryPage },
     {path : '/professional/dashboard', component: ProfessionalDashboardPage },
+    {path : '/professional/profile', component: ProfessionalProfilePage },
+    {path : '/professional/search', component: ProfessionalSearchPage }, 
     {path : '/professional/summary', component: ProfessionalSummaryPage },
     {path : '/admin/services/create_services', component : AdminCreateServicesPage},
     {path : '/admin/services/update/:id',component: AdminCreateServicesPage,props: route => ({ editing: true, id: route.params.id })},
