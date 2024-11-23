@@ -2,7 +2,7 @@ export default {
     template: `
       <div class="row">
         <div class="col-md-4 offset-md-4">
-          <h1>Professional Profile</h1>
+          <h3>Professional Profile</h3>
           
           <!-- Flash Messages -->
           <div v-if="messages.length" class="flash-messages">
@@ -26,11 +26,7 @@ export default {
                 type="text"
                 readonly
               />
-              <span v-if="errors.user_name" class="text-danger">
-                {{ errors.user_name }}
-              </span>
-            </div>
-  
+            </div>  
             <div class="form-group">
               <label for="full_name">Full Name</label>
               <input
@@ -39,9 +35,6 @@ export default {
                 class="form-control"
                 type="text"
               />
-              <span v-if="errors.full_name" class="text-danger">
-                {{ errors.full_name }}
-              </span>
             </div>
   
             <div class="form-group">
@@ -52,13 +45,10 @@ export default {
                 class="form-control"
               >
                 <option disabled value="">Select a service type</option>
-                <option v-for="type in serviceOptions" :key="type" :value="type">
-                  {{ type }}
+                <option v-for="service in serviceOptions" :key="service.id" :value="service.name">
+                  {{ service.name }}
                 </option>
               </select>
-              <span v-if="errors.service_type" class="text-danger">
-                {{ errors.service_type }}
-              </span>
             </div>
   
             <div class="form-group">
@@ -69,9 +59,6 @@ export default {
                 class="form-control"
                 type="text"
               />
-              <span v-if="errors.experience" class="text-danger">
-                {{ errors.experience }}
-              </span>
             </div>
   
             <div class="form-group">
@@ -91,9 +78,6 @@ export default {
                 v-model="form.address"
                 class="form-control"
               ></textarea>
-              <span v-if="errors.address" class="text-danger">
-                {{ errors.address }}
-              </span>
             </div>
   
             <div class="form-group">
@@ -118,7 +102,7 @@ export default {
     data() {
       return {
         form: {
-          user_name: '', // Prepopulate with actual data if available
+          user_name: '', 
           full_name: '',
           service_type: '',
           experience: '',
@@ -126,7 +110,7 @@ export default {
           pin_code: '',
           file: null, // File for upload
         },
-        serviceOptions: ['Plumbing', 'Electrician', 'Cleaning'], // Example service types
+        serviceOptions: [], 
         messages: [], // Flash messages
         errors: {}, // Validation errors
       };
@@ -148,13 +132,14 @@ export default {
           const result = await response.json();
   
           if (response.ok) {
+            this.serviceOptions = result.services;
             // Populate the form with the fetched data
-            this.form.user_name = result.username;
-            this.form.full_name = result.full_name;
-            this.form.service_type = result.service_type;
-            this.form.experience = result.experience;
-            this.form.address = result.address;
-            this.form.pin_code = result.pin_code;
+            this.form.user_name = result.profile.username;
+            this.form.full_name = result.profile.full_name;
+            this.form.service_type = result.profile.service_type;
+            this.form.experience = result.profile.experience;
+            this.form.address = result.profile.address;
+            this.form.pin_code = result.profile.pin_code;
           } else {
             this.messages.push({
               category: result.category || 'danger',

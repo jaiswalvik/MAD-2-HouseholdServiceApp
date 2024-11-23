@@ -271,14 +271,6 @@ def admin_search():
       }
   }), 200
 
-@app.route('/admin/summary', methods=['GET'])
-@jwt_required()
-def admin_summary():
-  claims = get_jwt()
-  if claims['role'] != 'admin':
-    return jsonify({"message": "Unauthorized access. Admins only.", "category": "danger"}), 401
-  return jsonify({"message": "Admin summary data retrieved successfully.", "category": "success"}), 200
-
 @app.route('/admin/manage_user/<int:user_id>/<string:field>/<string:value>', methods=['POST'])
 @jwt_required()
 def manage_user(user_id, field, value):
@@ -650,24 +642,25 @@ def professional_profile():
 
   # Fetch the professional profile if it exists
   professional = ProfessionalProfile.query.filter_by(user_id=user_id).first()
-
+  services = Service.query.all()
+  service_list = [{"id": service.id, "name": service.name} for service in services]
   if request.method == 'GET':
     # Respond with professional profile data if available, otherwise send empty profile
     profile_data = {
         "user_id": user_id,
         "username": User.query.get(user_id).username,
         "full_name": professional.full_name if professional else "",
-        "service_type": professional.service_type if professional else "",
+        "service_type": Service.query.filter(Service.id == professional.service_type).first().name if professional else "",
         "experience": professional.experience if professional else "",
         "address": professional.address if professional else "",
         "pin_code": professional.pin_code if professional else "",
         "filename": professional.filename if professional else "",
         "reviews": professional.reviews if professional else 0
     }
-    return jsonify(profile_data), 200
+    return jsonify({"profile": profile_data, "services": service_list}), 200
 
   elif request.method == 'POST':
-    data = request.json
+    data = request.form
     # Validate required fields
     required_fields = ["full_name", "service_type", "experience", "address", "pin_code"]
     missing_fields = [field for field in required_fields if not data.get(field)]
