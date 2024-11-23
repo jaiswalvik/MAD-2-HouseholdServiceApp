@@ -459,40 +459,28 @@ def customer_profile():
 
 # Customer Dashboard
 @app.route('/customer/dashboard', methods=['GET', 'POST'])
+@jwt_required()
 def customer_dashboard():
-    """
-    Retrieve the customer dashboard with available services and service requests.
-    ---
-    tags:
-      - Customer
-    parameters:
-      - name: service_type
-        in: query
-        type: string
-        required: false
-        description: "Filter services by service type."
-    responses:
-      200:
-        description: Renders the customer dashboard with available services and service requests.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-    """
-    if 'user_id' in session:
-        if request.args.get("service_type"):
-            services = Service.query.filter_by(service_type=request.args.get("service_type")).all()
-        else:
-            services = []
-        service_requests = ServiceRequest.query.filter_by(customer_id=session['user_id']).all()
-        professional_profile = ProfessionalProfile.query.all()
-        service_dict = {}  # Define service_dict here
-        prof_dict = {}  # Define user_dict here
-        for professional in professional_profile:
-            prof_dict[professional.user_id] = professional
-        for service in Service.query.all():
-            service_dict[service.id] = service
-        return render_template('customer_dashboard.html', services=services, service_requests=service_requests,prof_dict=prof_dict,service_dict=service_dict)
-    return redirect(url_for('login'))
+  # Get user_id from JWT
+  claims = get_jwt()
+  if claims['role'] != 'customer':
+    return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
+  user_id = claims['user_id']
 
+  if request.args.get("service_type"):
+      services = Service.query.filter_by(service_type=request.args.get("service_type")).all()
+  else:
+      services = []
+  service_requests = ServiceRequest.query.filter_by(customer_id=user_id).all()
+  professional_profile = ProfessionalProfile.query.all()
+  service_dict = {}
+  prof_dict = {} 
+  for professional in professional_profile:
+      prof_dict[professional.user_id] = professional.as_dict()
+  for service in Service.query.all():
+      service_dict[service.id] = service.as_dict()
+  return jsonify({"services":[service.as_dict() for service in services], "service_requests":[request.as_dict() for request in service_requests],"prof_dict":prof_dict,"service_dict":service_dict}),200
+  
 @app.route('/customer/search', methods=['GET', 'POST'])
 @jwt_required()
 def customer_search():
