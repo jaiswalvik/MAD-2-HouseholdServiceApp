@@ -4,7 +4,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func, or_
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required , get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from forms import CustomerProfileForm, CustomerSearchForm, ProfessionalProfileForm, ProfessionalSearchForm, RegisterForm, SearchForm, ServiceForm, ServiceRemarksForm
 from models import CustomerProfile, db , User, Service, ProfessionalProfile, ServiceRequest
 from werkzeug.utils import secure_filename   
 from flask_cors import CORS 
