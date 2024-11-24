@@ -8,13 +8,17 @@ from models import CustomerProfile, db , User, Service, ProfessionalProfile, Ser
 from werkzeug.utils import secure_filename   
 from flask_cors import CORS 
 from flasgger import Swagger
-
+from flask_caching import Cache
+from datetime import datetime as DateTime
 app = Flask(__name__,template_folder='../frontend', static_folder='../frontend', static_url_path='/static')
 
 # Configure file upload settings
 app.config['UPLOAD_FOLDER'] = 'uploads/'  # Directory to save files
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit file size to 16MB
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}  # Allowed file extensions
+
+# Configure Cache
+cache = Cache(app, config={'CACHE_TYPE': 'RedisCache','CACHE_DEFAULT_TIMEOUT': 30,'CACHE_REDIS_HOST': 'localhost','CACHE_REDIS_PORT': 6379,'CACHE_REDIS_DB': 0})
 
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
@@ -834,6 +838,7 @@ def update_request_status(status,request_id):
 # Define an API endpoint to return the reviews data
 @app.route('/admin/summary/reviews', methods=['GET'])
 @jwt_required()
+@cache.cached()
 def get_reviews():
   claims = get_jwt()
   if claims['role'] != 'admin':
@@ -844,6 +849,7 @@ def get_reviews():
 
 @app.route('/admin/summary/service_requests', methods=['GET'])
 @jwt_required()
+@cache.cached()
 def get_service_requests():
   claims = get_jwt()
   if claims['role'] != 'admin':
@@ -854,6 +860,7 @@ def get_service_requests():
 
 @app.route('/customer/summary/service_requests/<int:customer_id>', methods=['GET'])
 @jwt_required()
+@cache.memoize()
 def get_service_requests_customer(customer_id):
   claims = get_jwt()
   if claims['role'] != 'customer':
@@ -866,6 +873,7 @@ def get_service_requests_customer(customer_id):
 
 @app.route('/professional/summary/reviews/<int:professional_id>', methods=['GET'])
 @jwt_required()
+@cache.memoize()
 def get_reviews_professional(professional_id):
   claims = get_jwt()
   if claims['role'] != 'professional':
@@ -878,6 +886,7 @@ def get_reviews_professional(professional_id):
 
 @app.route('/professional/summary/service_requests/<int:professional_id>', methods=['GET'])
 @jwt_required()
+@cache.memoize()
 def get_service_requests_professional(professional_id):
   claims = get_jwt()
   if claims['role'] != 'professional':

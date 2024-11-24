@@ -71,7 +71,6 @@ export default {
         const apiUrl = this.serviceType
           ? `/customer/dashboard?service_type=${this.serviceType}`
           : "/customer/dashboard";
-        console.log(apiUrl);
         const response = await fetch(apiUrl,{
             method : 'GET',
             headers: {
