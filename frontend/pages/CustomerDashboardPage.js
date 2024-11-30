@@ -114,17 +114,7 @@ export default {
     }, 
     async closeServiceRequest(serviceRequestId) {
       try {
-        const response = await fetch(`/customer/close_service_request/${serviceRequestId}`, {
-          method: "PUT",
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        });
-        if (response.ok) {
-          this.fetchServices();
-        } else {
-          console.error("Error closing service request:", response);
-        }
+        console.log("Closing service request:", serviceRequestId);
       } catch (error) {
         console.error("Error closing service request:", error);
       }
@@ -183,9 +173,7 @@ export default {
             <td>{{ profDict[serviceRequest.professional_id]?.full_name }}</td>
             <td>{{ serviceRequest.service_status }}</td>
             <td>
-              <a v-if="serviceRequest.service_status !== 'completed'" :href="'/customer/close_service_request/' + serviceRequest.id" class="btn btn-success">
-                Close
-              </a>
+              <router-link v-if="serviceRequest.service_status !== 'completed'" :to="'/customer/closeServiceRequest/' + serviceRequest.id" class="btn btn-success">Close</router-link>
               <span v-else>Closed</span>
             </td>
           </tr>

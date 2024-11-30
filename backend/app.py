@@ -682,34 +682,32 @@ def create_service_request(service_id):
   db.session.commit()
   return jsonify({"message": "Service request created successfully!", "category": "success"}), 200
 
-@app.route('/customer/close_service_request/<int:request_id>', methods=['GET','POST'])
+@app.route('/customer/close_service_request/<int:request_id>', methods=['GET','PUT'])
 @jwt_required()
 def close_service_request(request_id):
-    # Get claims from JWT
-    claims = get_jwt()
-    # Ensure the user is a customer
-    if claims['role'] != 'customer':
-        return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
-    service_request = ServiceRequest.query.get_or_404(request_id)
-    professional = ProfessionalProfile.query.filter_by(user_id=service_request.professional_id).first()
-    service = Service.query.filter_by(id=service_request.service_id).first()
-    #form = ServiceRemarksForm()
-    #form.request_id.data = request_id
-    #form.service_name.data = service.name
-    #form.service_description.data = service.description
-    #form.full_name.data = professional.full_name
-            
-    # Give remarks for the service request
-    #if form.validate_on_submit():
-    #    service_request.service_status = 'completed'
-    #    service_request.date_of_completion = db.func.current_timestamp()
-    #    service_request.remarks = form.remarks.data
-    #    professional.reviews = (professional.reviews + form.rating.data)/2
-    #    flash('Service request closed successfully', 'success')
-    #    db.session.commit()
-    #    return redirect(url_for('customer_dashboard'))
-    #return render_template('service_remarks.html',form=form)
-
+  # Get claims from JWT
+  claims = get_jwt()
+  # Ensure the user is a customer
+  if claims['role'] != 'customer':
+      return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
+  service_request = ServiceRequest.query.get_or_404(request_id)
+  professional = ProfessionalProfile.query.filter_by(user_id=service_request.professional_id).first()
+  service = Service.query.filter_by(id=service_request.service_id).first()
+  if request.method == 'GET':
+    return jsonify({
+        "request_id": service_request.id,
+        "service_name": service.name,
+        "service_description": service.description,
+        "professional_name": professional.full_name
+    }), 200   
+  elif request.method == 'PUT':        
+    service_request.service_status = 'completed'
+    service_request.date_of_completion = db.func.current_timestamp()
+    service_request.remarks = request.get('remarks')
+    professional.reviews = (request.get('rating')+ professional.reviews)/2
+    db.session.commit()
+    return jsonify({"message": "Service request closed successfully!", "category": "success"}), 200
+    
 @app.route('/professional/profile', methods=['GET', 'POST'])
 @jwt_required()
 def professional_profile():

@@ -8,6 +8,7 @@ import AdminSearchPage from "../pages/AdminSearchPage.js";
 import AdminSummaryPage from "../pages/AdminSummaryPage.js";
 import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
 import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
+import CustomerServiceRemarksPage from "../pages/CustomerServiceRemarksPage.js";
 import CustomerProfilePage from "../pages/CustomerProfilePage.js";
 import CustomerSearchPage from "../pages/CustomerSearchPage.js";
 import CustomerSummaryPage from "../pages/CustomerSummaryPage.js";
@@ -24,8 +25,11 @@ const routes = [
     {path : '/admin/dashboard', component: AdminDashboardPage },
     {path : '/admin/profile', component: AdminProfilePage },
     {path : '/admin/search', component: AdminSearchPage },
-    {path : '/admin/summary', component: AdminSummaryPage }, 
+    {path : '/admin/summary', component: AdminSummaryPage },
+    {path : '/admin/services/create_services', component : AdminCreateServicesPage},
+    {path : '/admin/services/update/:id',component: AdminCreateServicesPage,props: route => ({ editing: true, id: route.params.id })}, 
     {path : '/customer/dashboard', component: CustomerDashboardPage },
+    {path : '/customer/closeServiceRequest/:id', component: CustomerServiceRemarksPage,props: route => ({ id: route.params.id })},
     {path : '/customer/profile', component: CustomerProfilePage },
     {path : '/customer/search', component: CustomerSearchPage }, 
     {path : '/customer/summary', component: CustomerSummaryPage },
@@ -33,8 +37,6 @@ const routes = [
     {path : '/professional/profile', component: ProfessionalProfilePage },
     {path : '/professional/search', component: ProfessionalSearchPage }, 
     {path : '/professional/summary', component: ProfessionalSummaryPage },
-    {path : '/admin/services/create_services', component : AdminCreateServicesPage},
-    {path : '/admin/services/update/:id',component: AdminCreateServicesPage,props: route => ({ editing: true, id: route.params.id })},
     {path : '/logout', component : {
         template : `
         <div>
