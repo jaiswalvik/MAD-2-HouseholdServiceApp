@@ -1,4 +1,6 @@
 import os
+import csv
+from io import StringIO
 from flask import Flask, jsonify, render_template, redirect, url_for, request, flash, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func, or_
@@ -10,7 +12,31 @@ from flask_cors import CORS
 from flasgger import Swagger
 from flask_caching import Cache
 from datetime import datetime as DateTime
+from celery import Celery
+import requests
+from celery.schedules import crontab
+from flask_mail import Mail, Message
+from jinja2 import Template
+
 app = Flask(__name__,template_folder='../frontend', static_folder='../frontend', static_url_path='/static')
+
+#Configgure Celery and Redis
+def make_celery(app):
+    celery = Celery(
+        app.import_name,
+        backend=app.config['result_backend'],
+        broker=app.config['broker_url'] 
+    )
+    celery.conf.update(app.config)
+    return celery
+
+app.config['broker_url'] = 'redis://localhost:6379/0'
+app.config['result_backend'] = 'redis://localhost:6379/0'
+
+celery = make_celery(app)
+
+#Configure mail
+mail = Mail(app)
 
 # Configure file upload settings
 app.config['UPLOAD_FOLDER'] = 'uploads/'  # Directory to save files
@@ -19,6 +45,12 @@ app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}  # Allow
 
 # Configure Cache
 cache = Cache(app, config={'CACHE_TYPE': 'RedisCache','CACHE_DEFAULT_TIMEOUT': 30,'CACHE_REDIS_HOST': 'localhost','CACHE_REDIS_PORT': 6379,'CACHE_REDIS_DB': 0})
+
+#CORS Configuration
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+#Swagger Configuration
+swagger = Swagger(app)
 
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
@@ -50,6 +82,80 @@ def download_file(filename):
   
   # Serve the file from the directory as an attachment
   return send_from_directory(file_directory, filename, as_attachment=True)
+
+#Celery Reminders 
+@celery.task
+def send_daily_reminders():
+    # Fetch professionals with pending service requests
+    pending_requests = get_pending_requests()  # Replace with actual logic
+    for request in pending_requests:
+        professional = request['professional']
+        # Send alert via Google Chat webhook
+        if professional['gchat_webhook']:
+            message = f"Reminder: You have pending service requests. Please visit or take action."
+            requests.post(professional['gchat_webhook'], json={"text": message})
+
+#Celery Monthly Activity Report
+@celery.task
+def send_monthly_activity_report():
+    # Generate the report
+    customers = get_all_customers()  # Replace with actual logic
+    for customer in customers:
+        report = generate_monthly_report(customer)  # Replace with logic
+        html_content = render_report_as_html(report)
+        # Send email
+        msg = Message(
+            f"Monthly Activity Report - {datetime.now().strftime('%B')}",
+            recipients=[customer['email']],
+            html=html_content
+        )
+        mail.send(msg)
+
+#Celery generate csv
+@celery.task
+def export_service_requests(professional_id):
+    # Fetch closed requests
+    requests_data = get_closed_service_requests(professional_id)  # Replace with logic
+    output = StringIO()
+    writer = csv.DictWriter(output, fieldnames=["service_id", "customer_id", "professional_id", "date_of_request", "remarks"])
+    writer.writeheader()
+    writer.writerows(requests_data)
+
+    # Save or email the CSV file
+    save_path = f"/path/to/exports/{professional_id}_requests.csv"
+    with open(save_path, 'w') as f:
+        f.write(output.getvalue())
+    notify_admin(f"CSV export complete for Professional ID {professional_id}. File saved at {save_path}.")    
+    return save_path
+
+#Trigger job from admin dashboard
+@app.route('/admin/export', methods=['POST'])
+def export_requests():
+    professional_id = request.json.get('professional_id')
+    task = export_service_requests.delay(professional_id)
+    return jsonify({'task_id': task.id}), 202
+
+# Notify admin
+def notify_admin(message):
+    admin_email = "admin@example.com"  # Replace with your admin email
+    msg = Message(
+        subject="Admin Notification",
+        recipients=[admin_email],
+        body=message
+    )
+    mail.send(msg)
+
+#Schedule task using celery
+celery.conf.beat_schedule = {
+    'send-daily-reminders': {
+        'task': 'send_daily_reminders',
+        'schedule': crontab(hour=18, minute=0),  # 6 PM daily
+    }
+}
+celery.conf.beat_schedule['send-monthly-report'] = {
+    'task': 'send_monthly_activity_report',
+    'schedule': crontab(hour=8, minute=0, day_of_month=1),  # 8 AM on the 1st
+}
 
 # Home Route
 @app.route('/')
@@ -897,9 +1003,6 @@ def get_service_requests_professional(professional_id):
   service_requests = (db.session.query(func.date(ServiceRequest.date_of_completion), func.count(ServiceRequest.id)).join(ProfessionalProfile,ServiceRequest.professional_id==ProfessionalProfile.user_id).filter(ServiceRequest.date_of_completion!=None,ProfessionalProfile.user_id==professional_id).group_by(func.date(ServiceRequest.date_of_completion)).all())
   datewise_requests =[{"date": str(sr[0]), "count": sr[1]} for sr in service_requests]   
   return jsonify(datewise_requests)
-
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
-swagger = Swagger(app)
 
 if __name__ == '__main__':
     app.run(debug=True)
