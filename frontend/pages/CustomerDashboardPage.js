@@ -6,6 +6,8 @@ export default {
   },
   data() {
     return {
+      message: null,      
+      category: null,
       services: [],
       serviceType: null,
       carouselSlides: [
@@ -56,7 +58,6 @@ export default {
       this.serviceType = queryParams.service_type;
     }
     this.fetchServices();
-    this.fetchServiceHistory();
   },
   watch: {
     // Watch for changes in the query parameters (in case the user navigates to the same page with different query)
@@ -86,12 +87,57 @@ export default {
         console.error("Error fetching services:", error);
       }
     },
+    async createServiceRequest(serviceId) {
+      try {
+        const response = await fetch(`/customer/create_service_request/${serviceId}`, {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          this.message = data.message;
+          this.category = data.category;
+          this.fetchServices();
+        } else {
+          const errorData = await response.json();
+          this.message = errorData.message;
+          this.category = errorData.category;
+          console.error("Error creating service request:", errorData);
+        }
+      } catch (error) {
+        this.message = "An error occurred while processing your request.";
+        this.category = "danger";
+        console.error("Error creating service request:", error);
+      }
+    }, 
+    async closeServiceRequest(serviceRequestId) {
+      try {
+        const response = await fetch(`/customer/close_service_request/${serviceRequestId}`, {
+          method: "PUT",
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+        });
+        if (response.ok) {
+          this.fetchServices();
+        } else {
+          console.error("Error closing service request:", response);
+        }
+      } catch (error) {
+        console.error("Error closing service request:", error);
+      }
+    }
   },     
   template: `
     <div class="container">
       <div class="row">
-        <div class="col-md-4 offset-md-4">        
-          <h3>Customer Dashboard</h3>
+        <div class="col-md-6 offset-md-3">        
+        <h3>Customer Dashboard</h3>
+        </div>
+        <div v-if="message" :class="'alert alert-' + category" role="alert">
+                {{ message }}
         </div>
       </div>
   
@@ -114,9 +160,9 @@ export default {
             <td>{{ service.description }}</td>
             <td>{{ service.price }}</td>
             <td>
-              <a :href="'/customer/create_service_request/' + service.id" class="btn btn-primary">
+              <button @click="createServiceRequest(service.id)" class="btn btn-primary">
                 Request
-              </a>
+              </button>
             </td>
           </tr>
         </tbody>

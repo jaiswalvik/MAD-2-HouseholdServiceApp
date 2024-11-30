@@ -653,101 +653,62 @@ def customer_search():
       }
   }), 200
 
-@app.route('/customer/create_service_request/<int:service_id>', methods=['GET', 'POST'])
+@app.route('/customer/create_service_request/<int:service_id>', methods=['GET','POST'])
+@jwt_required()
 def create_service_request(service_id):
-    """
-    Create a service request for a specified service.
-    ---
-    tags:
-      - Customer
-    parameters:
-      - name: service_id
-        in: path
-        type: integer
-        required: true
-        description: "The ID of the service for which the request is being created."
-    responses:
-      200:
-        description: Redirects to the customer dashboard upon successful creation of the service request.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-      400:
-        description: A flash message indicating that no professional is available for the service or the professional is blocked/unapproved.
-    """
-    if 'user_id' in session:
-        customer_id = session['user_id']
-        professional = ProfessionalProfile.query.filter_by(service_type=service_id).first()
-        if professional == None:
-            flash('No professional offering this service yet! Please choose another service.', 'danger')
-            return redirect(url_for('customer_dashboard'))
-        else:
-            user = User.query.filter_by(id=professional.user_id).first()
-            if user.approve == False:
-                flash('Professional offering this service is still not approved! Please choose another service.', 'danger')
-                return redirect(url_for('customer_dashboard'))
-            if user.blocked:
-                flash('Professional offering this service is blocked! Please choose another service.', 'danger')
-                return redirect(url_for('customer_dashboard'))
-        professional_service_request = ServiceRequest.query.filter_by(professional_id=professional.user_id, service_id=service_id).order_by(desc(ServiceRequest.date_of_request)).first()
-        if professional_service_request and (professional_service_request.service_status == 'requested' or professional_service_request.service_status == 'accepted'):
-            flash('Service request already exists! Please wait for the professional to respond or choose another service.', 'danger')
-            return redirect(url_for('customer_dashboard'))
-        service_request = ServiceRequest(service_id=service_id, customer_id=customer_id, professional_id= professional.user_id, service_status='requested')
-        db.session.add(service_request)
-        db.session.commit()
-        flash('Service request created successfully!', 'success')
-        return redirect(url_for('customer_dashboard'))
-    return redirect(url_for('login'))
+  # Get claims from JWT
+  claims = get_jwt()
+  # Ensure the user is a customer
+  if claims['role'] != 'customer':
+      return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
+  customer_id = claims['user_id']
+  # Find the professional offering the requested service
+  professional = ProfessionalProfile.query.filter_by(service_type=service_id).first()
+  if not professional:
+      return jsonify({"message": "No professional offering this service yet! Please choose another service.","category": "danger"}), 401
+  user = User.query.filter_by(id=professional.user_id).first()
+  if not user.approve:
+      return jsonify({"message": "Professional offering this service is still not approved! Please choose another service.","category": "danger"}), 401
+  if user.blocked:
+      return jsonify({"message": "Professional offering this service is blocked! Please choose another service.","category": "danger"}), 401
+  
+  professional_service_request = ServiceRequest.query.filter_by(professional_id=professional.user_id, service_id=service_id).order_by(desc(ServiceRequest.date_of_request)).first()
+  if professional_service_request and (professional_service_request.service_status == 'requested' or professional_service_request.service_status == 'accepted'):
+      return jsonify({"message": "Service request already exists! Please wait for the professional to respond or choose another service.", "category": "danger"}),401
+  
+  service_request = ServiceRequest(service_id=service_id, customer_id=customer_id, professional_id= professional.user_id, service_status='requested')
+  
+  db.session.add(service_request)
+  db.session.commit()
+  return jsonify({"message": "Service request created successfully!", "category": "success"}), 200
 
-@app.route('/customer/close_service_request/<int:request_id>', methods=['GET', 'POST'])
+@app.route('/customer/close_service_request/<int:request_id>', methods=['GET','POST'])
+@jwt_required()
 def close_service_request(request_id):
-    """
-    Close a service request and provide remarks or rating for the service.
-    ---
-    tags:
-      - Customer
-    parameters:
-      - name: request_id
-        in: path
-        type: integer
-        required: true
-        description: "The ID of the service request to close."
-    responses:
-      200:
-        description: Renders the service remarks page for closing the service request.
-        schema:
-          type: object
-          properties:
-            form:
-              type: object
-              description: The form for providing remarks and rating for the service.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-      201:
-        description: Service request closed successfully.
-    """
-    if not session.get('user_id'):
-        flash('Please log in to close this request.', 'danger')
-        return redirect(url_for('login'))
+    # Get claims from JWT
+    claims = get_jwt()
+    # Ensure the user is a customer
+    if claims['role'] != 'customer':
+        return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
     service_request = ServiceRequest.query.get_or_404(request_id)
     professional = ProfessionalProfile.query.filter_by(user_id=service_request.professional_id).first()
     service = Service.query.filter_by(id=service_request.service_id).first()
-    form = ServiceRemarksForm()
-    form.request_id.data = request_id
-    form.service_name.data = service.name
-    form.service_description.data = service.description
-    form.full_name.data = professional.full_name
+    #form = ServiceRemarksForm()
+    #form.request_id.data = request_id
+    #form.service_name.data = service.name
+    #form.service_description.data = service.description
+    #form.full_name.data = professional.full_name
             
     # Give remarks for the service request
-    if form.validate_on_submit():
-        service_request.service_status = 'completed'
-        service_request.date_of_completion = db.func.current_timestamp()
-        service_request.remarks = form.remarks.data
-        professional.reviews = (professional.reviews + form.rating.data)/2
-        flash('Service request closed successfully', 'success')
-        db.session.commit()
-        return redirect(url_for('customer_dashboard'))
-    return render_template('service_remarks.html',form=form)
+    #if form.validate_on_submit():
+    #    service_request.service_status = 'completed'
+    #    service_request.date_of_completion = db.func.current_timestamp()
+    #    service_request.remarks = form.remarks.data
+    #    professional.reviews = (professional.reviews + form.rating.data)/2
+    #    flash('Service request closed successfully', 'success')
+    #    db.session.commit()
+    #    return redirect(url_for('customer_dashboard'))
+    #return render_template('service_remarks.html',form=form)
 
 @app.route('/professional/profile', methods=['GET', 'POST'])
 @jwt_required()
@@ -905,44 +866,21 @@ def professional_search():
       }
   }), 200
 
-@app.route('/professional/update_request_status/<string:status>/<int:request_id>')
+@app.route('/professional/update_request_status/<string:status>/<int:request_id>',methods=['PUT'])
+@jwt_required()
 def update_request_status(status,request_id):
-    """
-    Update the status of a service request.
-    ---
-    tags:
-      - Professional
-    
-    parameters:
-      - name: status
-        in: path
-        type: string
-        required: true
-        description: "The new status of the service request (accept or reject)"
-        enum: ['accept', 'reject']
-      - name: request_id
-        in: path
-        type: integer
-        required: true
-        description: "ID of the service request to be updated"
-    responses:
-      302:
-        description: Redirects to the professional dashboard if successful, or to the login page if the user is not logged in.
-      404:
-        description: Service request not found.
-    """
-    if 'user_id' in session:
-        service_request = ServiceRequest.query.get_or_404(request_id)
-        if status == 'accept':
-            service_request.service_status = 'accepted'
-            service_request.date_of_accept_reject = db.func.current_timestamp()
-        elif status == 'reject':
-            service_request.service_status = 'rejected'
-            service_request.date_of_accept_reject = db.func.current_timestamp()
-        db.session.commit()
-        flash('Service request updated successfully!', 'success')
-        return redirect(url_for('professional_dashboard'))
-    return redirect(url_for('login'))
+  claims = get_jwt()
+  if claims['role'] != 'professional':
+    return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
+  service_request = ServiceRequest.query.get_or_404(request_id)
+  if status == 'accept':
+    service_request.service_status = 'accepted'
+    service_request.date_of_accept_reject = db.func.current_timestamp()
+  elif status == 'reject':
+    service_request.service_status = 'rejected'
+    service_request.date_of_accept_reject = db.func.current_timestamp()
+  db.session.commit()
+  return jsonify({'message':'Service request updated successfully!','category':'success'}),200
 
 # Define an API endpoint to return the reviews data
 @app.route('/admin/summary/reviews', methods=['GET'])
