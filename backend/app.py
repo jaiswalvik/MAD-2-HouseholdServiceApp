@@ -16,7 +16,6 @@ from celery import Celery
 import requests
 from celery.schedules import crontab
 from flask_mail import Mail, Message
-from jinja2 import Template
 
 app = Flask(__name__,template_folder='../frontend', static_folder='../frontend', static_url_path='/static')
 
@@ -28,6 +27,12 @@ def make_celery(app):
         broker=app.config['broker_url'] 
     )
     celery.conf.update(app.config)
+    # Attach Flask application context to Celery
+    class ContextTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():  # Push the Flask app context here
+                return super().__call__(*args, **kwargs)
+    celery.Task = ContextTask
     return celery
 
 app.config['broker_url'] = 'redis://localhost:6379/0'
@@ -36,6 +41,12 @@ app.config['result_backend'] = 'redis://localhost:6379/0'
 celery = make_celery(app)
 
 #Configure mail
+app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
+app.config['MAIL_PORT'] = 587  # Use 587 for TLS
+app.config['MAIL_USE_TLS'] = True  # TLS is required
+app.config['MAIL_USERNAME'] = 'apikey'  # Use 'apikey' as the username (this is required by SendGrid)
+app.config['MAIL_PASSWORD'] = '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'  # Your SendGrid API key (replace with your actual API key)
+app.config['MAIL_DEFAULT_SENDER'] = '21f1006140@ds.study.iitm.ac.in'  # Your email address to send from
 mail = Mail(app)
 
 # Configure file upload settings
@@ -84,60 +95,68 @@ def download_file(filename):
   return send_from_directory(file_directory, filename, as_attachment=True)
 
 #Celery Reminders 
-@celery.task
+@celery.task(name="tasks.send_daily_reminders")
 def send_daily_reminders():
     # Fetch professionals with pending service requests
-    pending_requests = get_pending_requests()  # Replace with actual logic
-    for request in pending_requests:
-        professional = request['professional']
+    #pending_requests = get_pending_requests()  # Replace with actual logic
+    #for request in pending_requests:
+    #    professional = request['professional']
         # Send alert via Google Chat webhook
-        if professional['gchat_webhook']:
+    #    if professional['gchat_webhook']:
             message = f"Reminder: You have pending service requests. Please visit or take action."
-            requests.post(professional['gchat_webhook'], json={"text": message})
+            #requests.post(professional['gchat_webhook'], json={"text": message})
+            requests.post('https://chat.googleapis.com/v1/spaces/AAAAWYwxXr0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=8Vdtgp_lHZv0jKlnwNqnD57byXmMAPR1obmSlZiLUTc',json={"text": message})
 
 #Celery Monthly Activity Report
-@celery.task
+@celery.task(name="tasks.send_monthly_activity_report")
 def send_monthly_activity_report():
     # Generate the report
-    customers = get_all_customers()  # Replace with actual logic
-    for customer in customers:
-        report = generate_monthly_report(customer)  # Replace with logic
-        html_content = render_report_as_html(report)
-        # Send email
-        msg = Message(
-            f"Monthly Activity Report - {datetime.now().strftime('%B')}",
-            recipients=[customer['email']],
-            html=html_content
-        )
-        mail.send(msg)
+    #customers = get_all_customers()  # Replace with actual logic
+    #for customer in customers:
+    #    report = generate_monthly_report(customer)  # Replace with logic
+    #    html_content = render_report_as_html(report)
+    try:
+      html_content = "<html><body><h1>Monthly Activity Report</h1><p>Here is your monthly activity report.</p></body></html>"
+      # Send email
+      msg = Message(
+          f"Monthly Activity Report - {DateTime.now().strftime('%B')}",
+          #recipients=[customer['email']],
+          recipients=['21f1006140@ds.study.iitm.ac.in'],
+          html=html_content
+      )
+      mail.send(msg)
+    except Exception as e:
+      print(f"Error sending email: {e}")
 
 #Celery generate csv
-@celery.task
+@celery.task(name="export_service_requests")
 def export_service_requests(professional_id):
     # Fetch closed requests
-    requests_data = get_closed_service_requests(professional_id)  # Replace with logic
+    #requests_data = get_closed_service_requests(professional_id)  # Replace with logic
+    requests_data = []
     output = StringIO()
     writer = csv.DictWriter(output, fieldnames=["service_id", "customer_id", "professional_id", "date_of_request", "remarks"])
     writer.writeheader()
     writer.writerows(requests_data)
 
     # Save or email the CSV file
-    save_path = f"/path/to/exports/{professional_id}_requests.csv"
+    save_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../uploads', 'requests.csv')
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, 'w') as f:
         f.write(output.getvalue())
     notify_admin(f"CSV export complete for Professional ID {professional_id}. File saved at {save_path}.")    
     return save_path
 
 #Trigger job from admin dashboard
-@app.route('/admin/export', methods=['POST'])
+@app.route('/admin/export', methods=['GET'])
 def export_requests():
-    professional_id = request.json.get('professional_id')
+    professional_id = 1
     task = export_service_requests.delay(professional_id)
     return jsonify({'task_id': task.id}), 202
 
 # Notify admin
 def notify_admin(message):
-    admin_email = "admin@example.com"  # Replace with your admin email
+    admin_email = "21f1006140@ds.study.iitm.ac.in"  
     msg = Message(
         subject="Admin Notification",
         recipients=[admin_email],
@@ -148,13 +167,15 @@ def notify_admin(message):
 #Schedule task using celery
 celery.conf.beat_schedule = {
     'send-daily-reminders': {
-        'task': 'send_daily_reminders',
-        'schedule': crontab(hour=18, minute=0),  # 6 PM daily
+        'task': 'tasks.send_daily_reminders',
+        #'schedule': crontab(hour=16, minute=59),  # 6 PM daily
+        'schedule': crontab(minute='*/1'),
     }
 }
 celery.conf.beat_schedule['send-monthly-report'] = {
-    'task': 'send_monthly_activity_report',
-    'schedule': crontab(hour=8, minute=0, day_of_month=1),  # 8 AM on the 1st
+    'task': 'tasks.send_monthly_activity_report',
+    #'schedule': crontab(hour=16, minute=58),  # 8 AM on the 1st
+    'schedule': crontab(minute='*/1'),
 }
 
 # Home Route
@@ -883,24 +904,6 @@ def professional_search():
           "service_requests": response_data
       }
   }), 200
-
-@app.route('/professional/summary')
-def professional_summary():
-    """
-    Render the professional summary page.
-    ---
-    tags:
-      - Professional
-
-    responses:
-      200:
-        description: Renders the professional summary HTML page.
-      302:
-        description: Redirects to the login page if the user is not logged in.
-    """
-    if 'user_id' in session:
-        return render_template('professional_summary.html')
-    return redirect(url_for('login'))
 
 @app.route('/professional/update_request_status/<string:status>/<int:request_id>')
 def update_request_status(status,request_id):
