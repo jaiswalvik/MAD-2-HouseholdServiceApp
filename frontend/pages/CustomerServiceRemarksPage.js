@@ -45,6 +45,15 @@ export default {
                             readonly>
                     </div>
                     <div class="form-group">
+                        <label for="serviceDescription">Service Description</label>
+                        <input 
+                            type="text" 
+                            id="serviceDescription" 
+                            v-model="formData.service_description" 
+                            class="form-control" 
+                            readonly>
+                    </div>
+                    <div class="form-group">
                         <label for="remarks">Remarks</label>
                         <textarea 
                             id="remarks" 
@@ -68,15 +77,30 @@ export default {
             </div>
         </div>
     `,
+    props: {
+        id: {
+            type: [String, Number],
+            default: null
+        }
+    },
+    created() {
+        if (this.id) {
+            this.fetchServiceRequest();
+        }else{
+            alert('No service request provided');
+            this.$router.push('/customer/dashboard');
+        }
+    },
     data() {
         return {
             flashMessages: [], // Array to hold flash messages
             formData: {
-                request_id: '123', // Example pre-filled data
-                service_name: 'Cleaning Service',
-                full_name: 'John Doe',
+                request_id: '', 
+                service_name: '',
+                full_name: '',
+                service_description: '',
                 remarks: '',
-                rating: 5,
+                rating: 0,
             },
         };
     },
@@ -84,27 +108,46 @@ export default {
         async submitForm() {
             try {
                 const response = await fetch(`/customer/close_service_request/${this.formData.request_id}`, {
-                    method: 'POST',
+                    method: 'PUT',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type' : 'application/json',
+                        'Authorization' : `Bearer ${localStorage.getItem('token')}`,
                     },
                     body: JSON.stringify(this.formData),
                 });
-
                 if (response.ok) {
                     const data = await response.json();
-                    this.flashMessages = [{ text: data.message, category: 'success' }];
+                    console.log("data:"+data);
+                    this.flashMessages = [{ text:data.message, category: data.category }];
+                    this.$router.push('/customer/dashboard');
                 } else {
                     const errorData = await response.json();
-                    this.flashMessages = [{ text: errorData.message, category: 'danger' }];
+                    this.flashMessages = [{ text: errorData.message, category: data.category }];
+                }
+            } catch (error) {
+                this.flashMessages = [{ text: 'An error occurred. Please try again later.', category: 'danger' }];
+                console.log(error);
+            }
+        },
+        cancel() {
+            this.$router.push('/customer/dashboard'); // Navigate to the dashboard
+        },
+        async fetchServiceRequest() {
+            try {
+                const response = await fetch(`customer/close_service_request/${this.id}`, {
+                    method : 'GET',
+                    headers: {  'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    this.formData = data;
+                } else {
+                    this.flashMessages = [{ text: 'Failed to load service request data', category: 'danger' }];
                 }
             } catch (error) {
                 this.flashMessages = [{ text: 'An error occurred. Please try again later.', category: 'danger' }];
                 console.error(error);
             }
-        },
-        cancel() {
-            window.location.href = '/customer_dashboard'; // Navigate to the dashboard
-        },
+        }    
     },
 };
