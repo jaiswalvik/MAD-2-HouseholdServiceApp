@@ -239,25 +239,27 @@ def render_report_as_html(report):
 @celery.task(name="export_service_requests")
 def export_service_requests(professional_id):
     # Fetch closed requests
-    #requests_data = get_closed_service_requests(professional_id)  # Replace with logic
-    requests_data = []
+    closed_requests = ServiceRequest.query.filter(
+        ServiceRequest.professional_id == professional_id,
+        ServiceRequest.service_status.in_(['completed'])
+    ).all()
+    closed_requests_dict = [closed_request.as_dict() for closed_request in closed_requests]
     output = StringIO()
-    writer = csv.DictWriter(output, fieldnames=["service_id", "customer_id", "professional_id", "date_of_request", "remarks"])
+    writer = csv.DictWriter(output, fieldnames=closed_requests_dict[0].keys())
     writer.writeheader()
-    writer.writerows(requests_data)
+    writer.writerows(closed_requests_dict)
 
     # Save or email the CSV file
-    save_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../uploads', 'requests.csv')
+    save_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'reports/', professional_id+'_closed_requests.csv')
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     with open(save_path, 'w') as f:
         f.write(output.getvalue())
-    notify_admin(f"CSV export complete for Professional ID {professional_id}. File saved at {save_path}.")    
+    notify_admin(f"CSV export complete for Professional ID: {professional_id}. File saved at {save_path}.")    
     return save_path
 
 #Trigger job from admin dashboard
-@app.route('/admin/export', methods=['GET'])
-def export_requests():
-    professional_id = 1
+@app.route('/admin/export/<string:professional_id>', methods=['GET'])
+def export_requests(professional_id):
     task = export_service_requests.delay(professional_id)
     return jsonify({'task_id': task.id}), 202
 
@@ -275,14 +277,14 @@ def notify_admin(message):
 celery.conf.beat_schedule = {
     'send-daily-reminders': {
         'task': 'tasks.send_daily_reminders',
-        #'schedule': crontab(hour=18, minute=0),  # 6 PM daily
-        'schedule': crontab(minute='*/1'),
+        'schedule': crontab(hour=18, minute=0),  # 6 PM daily
+        #'schedule': crontab(minute='*/1'),
     }
 }
 celery.conf.beat_schedule['send-monthly-report'] = {
     'task': 'tasks.send_monthly_activity_report',
-    #'schedule': crontab(hour=8, minute=0, day_of_month=1),  # 8 AM on the 1st
-    'schedule': crontab(minute='*/1'),
+    'schedule': crontab(hour=8, minute=0, day_of_month=1),  # 8 AM on the 1st
+    #'schedule': crontab(minute='*/1'),
 }
 
 # Home Route
