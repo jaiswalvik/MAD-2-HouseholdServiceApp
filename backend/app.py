@@ -259,6 +259,7 @@ def export_service_requests(professional_id):
 
 #Trigger job from admin dashboard
 @app.route('/admin/export/<string:professional_id>', methods=['GET'])
+@jwt_required()
 def export_requests(professional_id):
     task = export_service_requests.delay(professional_id)
     return jsonify({'task_id': task.id}), 202
@@ -272,6 +273,22 @@ def notify_admin(message):
         body=message
     )
     mail.send(msg)
+
+@app.route('/admin/reports/list', methods=['GET'])
+@jwt_required()
+def list_downloads():
+    # List all CSV files in the upload directory
+    files = [f for f in os.listdir('reports') if f.endswith('.csv')]
+    return jsonify({'downloads': files})
+
+@app.route('/admin/reports/download/<string:filename>', methods=['GET'])
+@jwt_required()
+def download_reports_file(filename):
+  # Set the directory where your files are located
+  file_directory = os.path.join(app.root_path, 'reports')
+  
+  # Serve the file from the directory as an attachment
+  return send_from_directory(file_directory, filename, as_attachment=True)
 
 #Schedule task using celery
 celery.conf.beat_schedule = {

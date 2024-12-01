@@ -7,6 +7,7 @@ import AdminProfilePage from "../pages/AdminProfilePage.js";
 import AdminSearchPage from "../pages/AdminSearchPage.js";
 import AdminSummaryPage from "../pages/AdminSummaryPage.js";
 import AdminCreateServicesPage from "../pages/AdminCreateServicesPage.js";
+import AdminDownloadReportPage from "../pages/AdminDownloadReportPage.js";
 import CustomerDashboardPage from "../pages/CustomerDashboardPage.js";
 import CustomerServiceRemarksPage from "../pages/CustomerServiceRemarksPage.js";
 import CustomerProfilePage from "../pages/CustomerProfilePage.js";
@@ -26,6 +27,7 @@ const routes = [
     {path : '/admin/profile', component: AdminProfilePage },
     {path : '/admin/search', component: AdminSearchPage },
     {path : '/admin/summary', component: AdminSummaryPage },
+    {path : '/admin/downloadReport', component: AdminDownloadReportPage },
     {path : '/admin/services/create_services', component : AdminCreateServicesPage},
     {path : '/admin/services/update/:id',component: AdminCreateServicesPage,props: route => ({ editing: true, id: route.params.id })}, 
     {path : '/customer/dashboard', component: CustomerDashboardPage },

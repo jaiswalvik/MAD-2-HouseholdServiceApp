@@ -18,6 +18,7 @@ export default {
                 <h3>Manage Services</h3>
                 <div class="d-flex justify-content-end">
                     <router-link to="/admin/services/create_services" class="btn btn-outline-success">Create Service</router-link>
+                    <router-link to="/admin/downloadReport" class="btn btn-outline-success">Download Report</router-link>
                 </div>
                 <table class="table table-striped">
                     <thead>
