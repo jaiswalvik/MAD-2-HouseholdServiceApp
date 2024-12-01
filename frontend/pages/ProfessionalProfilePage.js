@@ -45,7 +45,7 @@ export default {
                 class="form-control"
               >
                 <option disabled value="">Select a service type</option>
-                <option v-for="service in serviceOptions" :key="service.id" :value="service.name">
+                <option v-for="service in serviceOptions" :key="service.id" :value="service.id">
                   {{ service.name }}
                 </option>
               </select>
@@ -128,10 +128,8 @@ export default {
               Authorization: 'Bearer ' + localStorage.getItem('token'),
             },
           });
-  
-          const result = await response.json();
-  
           if (response.ok) {
+            const result = await response.json();
             this.serviceOptions = result.services;
             // Populate the form with the fetched data
             this.form.user_name = result.profile.username;
@@ -165,7 +163,6 @@ export default {
         for (const key in this.form) {
           formData.append(key, this.form[key]);
         }
-  
         try {
           const response = await fetch('/professional/profile', {
             method: 'POST',
