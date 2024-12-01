@@ -702,7 +702,6 @@ def close_service_request(request_id):
     }), 200   
   elif request.method == 'PUT':
     data = request.json
-    print(data);        
     service_request.service_status = 'completed'
     service_request.date_of_completion = db.func.current_timestamp()
     service_request.remarks = data.get('remarks')

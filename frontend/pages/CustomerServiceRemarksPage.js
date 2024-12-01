@@ -117,7 +117,6 @@ export default {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    console.log("data:"+data);
                     this.flashMessages = [{ text:data.message, category: data.category }];
                     this.$router.push('/customer/dashboard');
                 } else {
