@@ -1,7 +1,7 @@
 import os
 import csv
 from io import StringIO
-from flask import Flask, jsonify, render_template, redirect, url_for, request, flash, session, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func, or_
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required , get_jwt
@@ -98,36 +98,142 @@ def download_file(filename):
 #Celery Reminders 
 @celery.task(name="tasks.send_daily_reminders")
 def send_daily_reminders():
-    # Fetch professionals with pending service requests
-    #pending_requests = get_pending_requests()  # Replace with actual logic
-    #for request in pending_requests:
-    #    professional = request['professional']
-        # Send alert via Google Chat webhook
-    #    if professional['gchat_webhook']:
-            message = f"Reminder: You have pending service requests. Please visit or take action."
-            #requests.post(professional['gchat_webhook'], json={"text": message})
-            requests.post('https://chat.googleapis.com/v1/spaces/AAAAWYwxXr0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=8Vdtgp_lHZv0jKlnwNqnD57byXmMAPR1obmSlZiLUTc',json={"text": message})
+    # Fetch pending service requests and pre-load related professionals
+    pending_requests = (
+        ServiceRequest.query.filter_by(service_status='requested')
+        .join(ProfessionalProfile, ServiceRequest.professional_id == ProfessionalProfile.user_id)
+        .add_columns(ProfessionalProfile.full_name)
+        .all()
+      )
+
+    for service_request in pending_requests:
+      professional_name = service_request.full_name
+      #hardcoded chat_hook for demo
+      chat_hook_url = 'https://chat.googleapis.com/v1/spaces/AAAAWYwxXr0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=8Vdtgp_lHZv0jKlnwNqnD57byXmMAPR1obmSlZiLUTc'
+      
+      # Prepare and send the reminder message
+      message = {
+          "text": f"Reminder: {professional_name}! You have pending service requests. Please visit or take action."
+      }
+
+      try:
+          response = requests.post(chat_hook_url, json=message, timeout=10)
+          response.raise_for_status()  # Raise HTTPError for bad responses
+      except requests.RequestException as e:
+          # Log the error for monitoring/debugging
+          print(f"Failed to send reminder to {professional_name}: {e}")
+          continue
+    return "Daily reminders sent successfully!"
 
 #Celery Monthly Activity Report
 @celery.task(name="tasks.send_monthly_activity_report")
 def send_monthly_activity_report():
     # Generate the report
-    #customers = get_all_customers()  # Replace with actual logic
-    #for customer in customers:
-    #    report = generate_monthly_report(customer)  # Replace with logic
-    #    html_content = render_report_as_html(report)
-    try:
-      html_content = "<html><body><h1>Monthly Activity Report</h1><p>Here is your monthly activity report.</p></body></html>"
-      # Send email
-      msg = Message(
-          f"Monthly Activity Report - {DateTime.now().strftime('%B')}",
-          #recipients=[customer['email']],
-          recipients=['21f1006140@ds.study.iitm.ac.in'],
-          html=html_content
-      )
-      mail.send(msg)
-    except Exception as e:
-      print(f"Error sending email: {e}")
+    customers = CustomerProfile.query.all()
+    for customer in customers:
+      report = generate_customer_report(customer.user_id)  
+      html_content = render_report_as_html(report)
+      try:
+        # Send email
+        msg = Message(
+            f"Monthly Activity Report - {DateTime.now().strftime('%B')}",
+            #hardcoded email_id for demo
+            recipients=['21f1006140@ds.study.iitm.ac.in'],
+            html=html_content
+        )
+        mail.send(msg)
+      except Exception as e:
+        print(f"Error sending email: {e}")
+    return "Monthly activity reports sent successfully!"
+
+def generate_customer_report(customer_id):
+    # Query to get customer profile
+    customer = CustomerProfile.query.filter_by(user_id=customer_id).first()
+
+    if not customer:
+        return {"error": "Customer not found"}
+
+    # Query to calculate services used and total spent
+    report_data = (
+        db.session.query(
+            func.count(ServiceRequest.id).label("services_used"),       # Total completed services
+            func.sum(Service.price).label("total_spent")                # Sum of service prices
+        )
+        .join(Service, ServiceRequest.service_id == Service.id)         # Join with Service table
+        .filter(ServiceRequest.customer_id == customer_id)             # Filter by customer ID
+        .filter(ServiceRequest.service_status == "completed")          # Include only completed services
+        .one()  # Fetch a single row
+    )
+
+    # Prepare the report
+    return {
+        "customer_name": customer.full_name,
+        "services_used": report_data.services_used or 0,
+        "total_spent": report_data.total_spent or 0.0,
+        "address": customer.address,
+        "pin_code": customer.pin_code,
+        "date_range": "Till Date"
+    }
+def render_report_as_html(report):
+    # Generate HTML string from JSON data
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Customer Report</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                line-height: 1.6;
+            }}
+            .report-container {{
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 600px;
+                margin: auto;
+            }}
+            .report-container h1 {{
+                text-align: center;
+                color: #333;
+            }}
+            .report-item {{
+                margin-bottom: 10px;
+            }}
+            .report-item span {{
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="report-container">
+            <h1>Customer Report</h1>
+            <div class="report-item">
+                <span>Name:</span> {report['customer_name']}
+            </div>
+            <div class="report-item">
+                <span>Address:</span> {report['address']}
+            </div>
+            <div class="report-item">
+                <span>Pin Code:</span> {report['pin_code']}
+            </div>
+            <div class="report-item">
+                <span>Services Used:</span> {report['services_used']}
+            </div>
+            <div class="report-item">
+                <span>Total Spent:</span> ${report['total_spent']}
+            </div>
+            <div class="report-item">
+                <span>Date Range:</span> {report['date_range']}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
 
 #Celery generate csv
 @celery.task(name="export_service_requests")
@@ -169,13 +275,13 @@ def notify_admin(message):
 celery.conf.beat_schedule = {
     'send-daily-reminders': {
         'task': 'tasks.send_daily_reminders',
-        #'schedule': crontab(hour=16, minute=59),  # 6 PM daily
+        #'schedule': crontab(hour=18, minute=0),  # 6 PM daily
         'schedule': crontab(minute='*/1'),
     }
 }
 celery.conf.beat_schedule['send-monthly-report'] = {
     'task': 'tasks.send_monthly_activity_report',
-    #'schedule': crontab(hour=16, minute=58),  # 8 AM on the 1st
+    #'schedule': crontab(hour=8, minute=0, day_of_month=1),  # 8 AM on the 1st
     'schedule': crontab(minute='*/1'),
 }
 
