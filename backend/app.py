@@ -19,7 +19,7 @@ from flask_mail import Mail, Message
 
 app = Flask(__name__,template_folder='../frontend', static_folder='../frontend', static_url_path='/static')
 
-#Configgure Celery and Redis
+#Configure Celery and Redis
 def make_celery(app):
     celery = Celery(
         app.import_name,
@@ -86,7 +86,8 @@ def create_tables():
     first_request = False
 
 # Serve downloadable files from a 'files' directory
-@app.route('/download/<string:filename>')
+@app.route('/download/<string:filename>', methods=['GET'])
+@jwt_required()
 def download_file(filename):
   # Set the directory where your files are located
   file_directory = os.path.join(app.root_path, 'uploads')

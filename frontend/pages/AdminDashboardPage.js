@@ -61,7 +61,7 @@ export default {
                             <td>{{ serviceType[professional.user_id].name }}</td>
                             <td>{{ professional.experience }}</td>
                             <td>{{ professional.reviews }}</td>
-                            <td><a :href="'/download/' + professional.filename">{{ professional.filename }}</a></td>
+                            <td><a :href="'uploads/' + professional.filename"  @click.prevent="downloadFile(professional.filename)">{{ professional.filename }}</a></td>
                             <td>
                                 <button 
                                     @click="toggleApproval(professional.user_id)" 
@@ -271,6 +271,31 @@ export default {
             } catch (error) {
                 console.error("Error:", error);
             }
-        }, 
+        },
+        async downloadFile(filename) {
+            try {
+            const response = await fetch(`/download/${filename}`,
+                {
+                    method: 'GET',
+                    headers: {'Authorization': 'Bearer ' + localStorage.getItem('token')},
+                }
+            );
+            if (!response.ok) {
+                alert("Error downloading file.");
+                return;
+            }
+            const blob = await response.blob();
+            const link = document.createElement("a");
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();    
+            // Clean up the object URL to free memory
+            window.URL.revokeObjectURL(link.href);
+            } catch (error) {
+                console.error("Error downloading file:", error);
+                alert("An error occurred while downloading the file.");
+            }
+        }
+          
     }
 };
