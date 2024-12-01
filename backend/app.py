@@ -89,6 +89,88 @@ def create_tables():
 @app.route('/download/<string:filename>', methods=['GET'])
 @jwt_required()
 def download_file(filename):
+  """
+    Update an existing service by an admin.
+    This endpoint allows an admin to update an existing service with details like name, type, price, and description.
+    ---
+    tags:
+      - File Management
+    parameters:
+      - name: service_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the service to be updated.
+        example: 1
+      - name: service
+        in: body
+        description: Service details to be updated
+        required: true
+        schema:
+          type: object
+          properties:
+            service_type:
+              type: string
+              description: The type of service (e.g., 'plumbing', 'cleaning')
+              example: 'plumbing'
+            name:
+              type: string
+              description: The name of the service
+              example: 'Water Leak Repair'
+            price:
+              type: number
+              description: The price of the service
+              example: 100.50
+            description:
+              type: string
+              description: A brief description of the service
+              example: 'Fixes water leaks in pipes and faucets.'
+    responses:
+      200:
+        description: Service updated successfully.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "success"
+            message:
+              type: string
+              example: "Service updated successfully"
+      400:
+        description: Missing required field or invalid input data.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "Invalid input data"
+      401:
+        description: Unauthorized access (not an admin).
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "Please login as admin to update service"
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "An error occurred while updating the service"
+    """
   # Set the directory where your files are located
   file_directory = os.path.join(app.root_path, 'uploads')
   
@@ -261,6 +343,25 @@ def export_service_requests(professional_id):
 @app.route('/admin/export/<string:professional_id>', methods=['GET'])
 @jwt_required()
 def export_requests(professional_id):
+    """
+    Initiate a background task to export service requests for a professional.
+    ---
+    tags:
+      - Celery
+    parameters:
+      - name: professional_id
+        in: path
+        type: string
+        required: true
+        description: The ID of the professional whose service requests are to be exported.
+    responses:
+      202:
+        description: Task accepted, export process started.
+      401:
+        description: Unauthorized (Admin role required).
+      403:
+        description: Forbidden (Insufficient permissions).
+    """
     task = export_service_requests.delay(professional_id)
     return jsonify({'task_id': task.id}), 202
 
@@ -277,6 +378,19 @@ def notify_admin(message):
 @app.route('/admin/reports/list', methods=['GET'])
 @jwt_required()
 def list_downloads():
+    """
+    List all downloadable CSV files in the 'reports' directory.
+    ---
+    tags:
+      - File Management
+    responses:
+      200:
+        description: List of downloadable files retrieved successfully.
+      401:
+        description: Unauthorized access.
+      500:
+        description: Error while fetching the file list.
+    """
     # List all CSV files in the upload directory
     files = [f for f in os.listdir('reports') if f.endswith('.csv')]
     return jsonify({'downloads': files})
@@ -284,6 +398,27 @@ def list_downloads():
 @app.route('/admin/reports/download/<string:filename>', methods=['GET'])
 @jwt_required()
 def download_reports_file(filename):
+  """
+    Download a report file from the 'reports' directory.
+    ---
+    tags:
+      - File Management
+    parameters:
+      - name: filename
+        in: path
+        type: string
+        required: true
+        description: The name of the file to download.
+    responses:
+      200:
+        description: File successfully downloaded.
+      401:
+        description: Unauthorized access.
+      404:
+        description: File not found.
+      500:
+        description: An error occurred while processing the request.
+    """
   # Set the directory where your files are located
   file_directory = os.path.join(app.root_path, 'reports')
   
@@ -307,10 +442,84 @@ celery.conf.beat_schedule['send-monthly-report'] = {
 # Home Route
 @app.route('/')
 def index():
+  """
+  Home Page
+  ---
+  tags:
+    - Home
+  responses:
+    200:
+      description: Returns the rendered HTML for the homepage
+  """
   return render_template('index.html') 
 
 @app.route('/register', methods=['POST'])
 def register():
+  """
+  User Registration
+  ---
+  tags:
+    - Authentication
+  parameters:
+    - in: body
+      name: body
+      required: true
+      schema:
+        type: object
+        properties:
+          username:
+            type: string
+            description: Username for the new user
+            example: john_doe
+          password:
+            type: string
+            description: Password for the new user
+            example: StrongPassword123
+          role:
+            type: string
+            description: Role of the user (customer or professional)
+            example: customer
+  responses:
+    200:
+      description: User registration successful
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              category:
+                type: string
+                example: success
+              message:
+                type: string
+                example: Registration successful!
+    401:
+      description: User already exists or invalid role
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              category:
+                type: string
+                example: danger
+              message:
+                type: string
+                example: User already exists!
+    400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              category:
+                type: string
+                example: danger
+              message:
+                type: string
+                example: Bad request
+  """  
   if request.method == 'POST':
     username = request.json.get('username')
     password = request.json.get('password')
@@ -329,6 +538,65 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
+  """
+  User Login
+  ---
+  tags:
+    - Authentication
+  parameters:
+    - in: body
+      name: body
+      required: true
+      schema:
+        type: object
+        properties:
+          username:
+            type: string
+            description: Username of the user
+            example: john_doe
+          password:
+            type: string
+            description: Password of the user
+            example: StrongPassword123
+  responses:
+    200:
+      description: Successful login with access token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              access_token:
+                type: string
+                description: JWT access token
+                example: eyJhbGciOiJIUzI1NiIsInR5...
+    401:
+      description: Unauthorized due to invalid credentials or user restrictions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              category:
+                type: string
+                example: danger
+              message:
+                type: string
+                example: Your account is blocked! Please contact the admin.
+    400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              category:
+                type: string
+                example: danger
+              message:
+                type: string
+                example: Bad request
+  """
   if request.method == 'POST':
     username = request.json.get('username')
     password = request.json.get('password')
@@ -373,6 +641,39 @@ def login():
 @app.route('/get-claims', methods=['GET'])
 @jwt_required()
 def get_claims():
+    """
+    Get JWT Claims
+    ---
+    tags:
+      - Authentication
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Successfully retrieved JWT claims
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                claims:
+                  type: object
+                  description: JWT claims containing user-specific data
+                  example:
+                    user_id: 123
+                    role: customer
+                    redirect: customer_dashboard
+      401:
+        description: Unauthorized, token missing or invalid
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                msg:
+                  type: string
+                  example: Missing Authorization Header
+    """
     # Get the claims from the JWT
     claims = get_jwt()
 
@@ -382,6 +683,38 @@ def get_claims():
 # Admin Login Route
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
+  """
+    Admin Login
+    ---
+    tags:
+      - Admin
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              username:
+                type: string
+                example: admin
+              password:
+                type: string
+                example: admin123
+    responses:
+      200:
+        description: Successfully authenticated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  example: "jwt_access_token_here"
+      401:
+        description: Invalid credentials
+    """
   if request.method == 'POST':
     username = request.json.get('username')
     password = request.json.get('password')
@@ -396,12 +729,72 @@ def admin_login():
 @app.route('/admin/profile', methods=['POST'])
 @jwt_required()
 def admin_profile():
+  """
+  Admin Profile Access
+  ---
+  tags:
+    - Admin
+  security:
+    - BearerAuth: []
+  responses:
+    200:
+      description: Profile access denied for admin
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Admin! You can't make changes to your profile"
+              category:
+                type: string
+                example: "danger"
+  """
   return jsonify({"message":"Admin! You can't make changes to your profile","category": "danger"}), 200
 
 # Admin Dashboard
 @app.route('/admin/dashboard', methods=['POST'])
 @jwt_required()
 def admin_dashboard():
+  """
+    Admin Dashboard
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Successfully retrieved admin dashboard data
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Admin dashboard data retrieved successfully."
+                category:
+                  type: string
+                  example: "success"
+                services:
+                  type: array
+                  items:
+                    type: object
+                professional_profiles:
+                  type: array
+                  items:
+                    type: object
+                service_requests:
+                  type: array
+                  items:
+                    type: object
+                customers:
+                  type: array
+                  items:
+                    type: object
+    """
   # Verify admin role
   claims = get_jwt()
   if claims['role'] != 'admin':
@@ -442,6 +835,48 @@ def admin_dashboard():
 @app.route('/admin/search', methods=['POST'])
 @jwt_required()
 def admin_search():
+  """
+    Admin Search
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              search_type:
+                type: string
+                enum: [customer, professional, service, service_request]
+                example: customer
+              search_text:
+                type: string
+                example: "John Doe"
+    responses:
+      200:
+        description: Successfully retrieved search results
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category:
+                  type: string
+                  example: "success"
+                message:
+                  type: string
+                  example: "Search completed successfully"
+                data:
+                  type: object
+      401:
+        description: Admin access required
+      404:
+        description: No results found
+    """
   # Verify if the user is an admin
   claims = get_jwt()
   if claims['role'] != 'admin':
@@ -530,6 +965,91 @@ def admin_search():
 @app.route('/admin/manage_user/<int:user_id>/<string:field>/<string:value>', methods=['POST'])
 @jwt_required()
 def manage_user(user_id, field, value):
+  """
+    Manage User (Approve/Block)
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID of the user to be managed
+        schema:
+          type: integer
+          example: 1
+      - name: field
+        in: path
+        required: true
+        description: Field to be updated ('approve' or 'blocked')
+        schema:
+          type: string
+          enum: ['approve', 'blocked']
+          example: approve
+      - name: value
+        in: path
+        required: true
+        description: New value for the field ('true' or 'false')
+        schema:
+          type: string
+          enum: ['true', 'false']
+          example: false
+    responses:
+      200:
+        description: User status updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Professional/Customer approved successfully"
+                category:
+                  type: string
+                  example: "success"
+      400:
+        description: Invalid field or value
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Invalid field specified."
+                category:
+                  type: string
+                  example: "danger"
+      401:
+        description: Unauthorized access
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Unauthorized access. Admins only."
+                category:
+                  type: string
+                  example: "danger"
+      404:
+        description: User not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "User not found."
+                category:
+                  type: string
+                  example: "danger"
+    """
   # Check if the user has admin privileges
   claims = get_jwt()
   if claims['role'] != 'admin':
@@ -576,6 +1096,44 @@ def manage_user(user_id, field, value):
 @app.route('/admin/services/get/<int:service_id>', methods=['GET'])
 @jwt_required()
 def get_services(service_id):
+  """
+    Get Service by ID
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: service_id
+        in: path
+        required: true
+        description: ID of the service to fetch
+        schema:
+          type: integer
+          example: 1
+    responses:
+      200:
+        description: Service details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                service_type:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+      401:
+        description: Unauthorized access
+      404:
+        description: Service not found
+    """
   claims = get_jwt()
   if claims['role'] != 'admin':
     return jsonify({"category": "danger", "message": "Please login as admin to update service"}), 401 
@@ -593,6 +1151,82 @@ def get_services(service_id):
 @app.route('/admin/services/create_services', methods=['POST'])
 @jwt_required()
 def create_services():
+  """
+    Create a new service by an admin.
+    This endpoint allows an admin to create a new service with details like name, type, price, and description.
+    ---
+    tags:
+      - Admin
+    parameters:
+      - name: service
+        in: body
+        description: Service details to be created
+        required: true
+        schema:
+          type: object
+          properties:
+            service_type:
+              type: string
+              description: The type of service (e.g., 'plumbing', 'cleaning')
+              example: 'plumbing'
+            name:
+              type: string
+              description: The name of the service
+              example: 'Water Leak Repair'
+            price:
+              type: number
+              description: The price of the service
+              example: 100.50
+            description:
+              type: string
+              description: A brief description of the service
+              example: 'Fixes water leaks in pipes and faucets.'
+    responses:
+      200:
+        description: Service created successfully.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "success"
+            message:
+              type: string
+              example: "Service created successfully"
+      400:
+        description: Missing required field or invalid input data.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "'name' is a required field"
+      401:
+        description: Unauthorized access (not an admin).
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "Please login as admin to create service"
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "An error occurred while creating the service"
+    """
   claims = get_jwt()
   
   if claims['role'] != 'admin':
@@ -625,6 +1259,88 @@ def create_services():
 @app.route('/admin/services/update/<int:service_id>', methods=['PUT'])
 @jwt_required()
 def update_service(service_id):
+  """
+    Update an existing service by an admin.
+    This endpoint allows an admin to update an existing service with details like name, type, price, and description.
+    ---
+    tags:
+      - Admin
+    parameters:
+      - name: service_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the service to be updated.
+        example: 1
+      - name: service
+        in: body
+        description: Service details to be updated
+        required: true
+        schema:
+          type: object
+          properties:
+            service_type:
+              type: string
+              description: The type of service (e.g., 'plumbing', 'cleaning')
+              example: 'plumbing'
+            name:
+              type: string
+              description: The name of the service
+              example: 'Water Leak Repair'
+            price:
+              type: number
+              description: The price of the service
+              example: 100.50
+            description:
+              type: string
+              description: A brief description of the service
+              example: 'Fixes water leaks in pipes and faucets.'
+    responses:
+      200:
+        description: Service updated successfully.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "success"
+            message:
+              type: string
+              example: "Service updated successfully"
+      400:
+        description: Missing required field or invalid input data.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "Invalid input data"
+      401:
+        description: Unauthorized access (not an admin).
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "Please login as admin to update service"
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+              example: "danger"
+            message:
+              type: string
+              example: "An error occurred while updating the service"
+    """
   claims = get_jwt()
   if claims['role'] != 'admin':
     return jsonify({"category": "danger", "message": "Please login as admin to update service"}), 401 
@@ -654,6 +1370,25 @@ def update_service(service_id):
 @app.route('/admin/services/delete/<int:service_id>', methods=['DELETE'])
 @jwt_required()
 def delete_service(service_id):
+    """
+    Delete Service by ID
+    ---
+    tags:
+      - Admin
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: service_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      200:
+        description: Service deleted successfully
+      404:
+        description: Service not found
+    """
     claims = get_jwt()
     if claims['role'] != 'admin':
         return jsonify({"category": "danger", "message": "Please login as admin to delete service"}), 401 
@@ -674,6 +1409,21 @@ def delete_service(service_id):
 @app.route('/customer/profile', methods=['GET', 'POST'])
 @jwt_required()
 def customer_profile():
+  """
+    Manage Customer Profile
+    ---
+    tags:
+      - Customer
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Profile retrieved or updated successfully
+      400:
+        description: Validation errors or missing fields
+      401:
+        description: Unauthorized access for non-customer users
+    """
   # Get user_id from JWT
   claims = get_jwt()
   if claims['role'] != 'customer':
@@ -718,6 +1468,19 @@ def customer_profile():
 @app.route('/customer/dashboard', methods=['GET', 'POST'])
 @jwt_required()
 def customer_dashboard():
+  """
+    Customer Dashboard
+    ---
+    tags:
+      - Customer
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Dashboard data retrieved successfully
+      401:
+        description: Unauthorized access for non-customer users
+    """
   # Get user_id from JWT
   claims = get_jwt()
   if claims['role'] != 'customer':
@@ -741,6 +1504,56 @@ def customer_dashboard():
 @app.route('/customer/search', methods=['GET', 'POST'])
 @jwt_required()
 def customer_search():
+  """
+    Customer search for professional services.
+    This endpoint allows the customer to search for professionals or services by providing search parameters.
+    ---
+    tags:
+      - Customer
+    parameters:
+      - name: search_type
+        in: json
+        type: string
+        required: true
+        description: Type of search ('professional')
+      - name: search_text
+        in: json
+        type: string
+        required: true
+        description: The search term (e.g. name, address, pin code)
+    responses:
+      200:
+        description: Search results
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+            message:
+              type: string
+            data:
+              type: object
+              properties:
+                service_professional:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      pin_code:
+                        type: string
+                      address:
+                        type: string
+                      service_name:
+                        type: string
+                      service_description:
+                        type: string
+                      service_price:
+                        type: string
+      400:
+        description: Missing or invalid parameters
+      401:
+        description: Unauthorized access
+    """
   claims = get_jwt()
   if claims['role'] != 'customer':
     return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
@@ -782,6 +1595,47 @@ def customer_search():
 @app.route('/customer/create_service_request/<int:service_id>', methods=['GET','POST'])
 @jwt_required()
 def create_service_request(service_id):
+  """
+    Create a service request for a customer.
+    This endpoint allows the customer to request a service offered by a professional.
+    ---
+    tags:
+      - Customer
+    parameters:
+      - name: service_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the service to request
+    responses:
+      200:
+        description: Service request created successfully
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      401:
+        description: Unauthorized or validation errors
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      404:
+        description: No professional available for the service
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   # Get claims from JWT
   claims = get_jwt()
   # Ensure the user is a customer
@@ -811,6 +1665,64 @@ def create_service_request(service_id):
 @app.route('/customer/close_service_request/<int:request_id>', methods=['GET','PUT'])
 @jwt_required()
 def close_service_request(request_id):
+  """
+    Close a service request for a customer after the service has been completed.
+    The customer can either view the request details (GET) or mark it as completed (PUT).
+    ---
+    tags:
+      - Customer
+    parameters:
+      - name: request_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the service request to close
+    responses:
+      200:
+        description: Successfully closed the service request or fetched service request details
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+            request_id:
+              type: integer
+            service_name:
+              type: string
+            service_description:
+              type: string
+            full_name:
+              type: string
+      401:
+        description: Unauthorized access (not a customer or other validation errors)
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      404:
+        description: Service request not found
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      400:
+        description: Invalid request (missing or invalid input)
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   # Get claims from JWT
   claims = get_jwt()
   # Ensure the user is a customer
@@ -838,6 +1750,66 @@ def close_service_request(request_id):
 @app.route('/professional/profile', methods=['GET', 'POST'])
 @jwt_required()
 def professional_profile():
+  """
+    Get or update the professional profile of a user.
+    ---
+    tags:
+      - Professional
+    responses:
+      200:
+        description: Successfully retrieved or updated the professional profile.
+        schema:
+          type: object
+          properties:
+            profile:
+              type: object
+              properties:
+                user_id:
+                  type: integer
+                username:
+                  type: string
+                full_name:
+                  type: string
+                service_type:
+                  type: string
+                experience:
+                  type: string
+                address:
+                  type: string
+                pin_code:
+                  type: string
+                filename:
+                  type: string
+                reviews:
+                  type: number
+            services:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+      400:
+        description: Missing required fields or invalid file format.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      401:
+        description: Unauthorized access (not a professional).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   # Get user_id from JWT
   claims = get_jwt()
   if claims['role'] != 'professional':
@@ -916,6 +1888,104 @@ def professional_profile():
 @app.route('/professional/dashboard', methods=['GET','POST'])
 @jwt_required()  
 def professional_dashboard():
+  """
+    Retrieve the professional's dashboard data, including service requests and services.
+    ---
+    tags:
+      - Professional
+    responses:
+      200:
+        description: Successfully retrieved the professional dashboard data.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+            services:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  price:
+                    type: number
+            service_requests:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  service_id:
+                    type: integer
+                  customer_id:
+                    type: integer
+                  service_status:
+                    type: string
+                  date_of_request:
+                    type: string
+                  remarks:
+                    type: string
+            service_requests_closed:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  service_id:
+                    type: integer
+                  customer_id:
+                    type: integer
+                  service_status:
+                    type: string
+                  date_of_request:
+                    type: string
+                  remarks:
+                    type: string
+            cust_dict:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                  full_name:
+                    type: string
+                  address:
+                    type: string
+                  pin_code:
+                    type: string
+            service_dict:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  price:
+                    type: number
+      401:
+        description: Unauthorized access (not a professional).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] == 'professional':
     professional_id = claims['user_id']
@@ -945,6 +2015,74 @@ def professional_dashboard():
 @app.route('/professional/search',methods=['GET', 'POST'])
 @jwt_required()
 def professional_search():
+  """
+    Search for service requests based on various criteria (date, location, pin code).
+    ---
+    tags:
+      - Professional
+    parameters:
+      - name: search_type
+        in: body
+        type: string
+        required: true
+        enum: [date, location, pin]
+        description: The type of search (date, location, or pin code).
+      - name: search_text
+        in: body
+        type: string
+        required: true
+        description: The search term to filter the requests (date, location, or pin).
+    responses:
+      200:
+        description: Successfully retrieved the search results.
+        schema:
+          type: object
+          properties:
+            category:
+              type: string
+            message:
+              type: string
+            data:
+              type: object
+              properties:
+                service_requests:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      customer_name:
+                        type: string
+                      service_name:
+                        type: string
+                      service_description:
+                        type: string
+                      service_price:
+                        type: number
+                      status:
+                        type: string
+                      start_date:
+                        type: string
+                      remarks:
+                        type: string
+      401:
+        description: Unauthorized access (not a professional).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      400:
+        description: No results found for the search term.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'professional':
     return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
@@ -994,6 +2132,53 @@ def professional_search():
 @app.route('/professional/update_request_status/<string:status>/<int:request_id>',methods=['PUT'])
 @jwt_required()
 def update_request_status(status,request_id):
+  """
+    Update the status of a service request.
+    Allows professionals to either accept or reject a service request.
+    ---
+    tags:
+      - Professional
+    parameters:
+      - name: status
+        in: path
+        type: string
+        required: true
+        enum: [accept, reject]
+        description: The new status of the service request.
+      - name: request_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the service request to be updated.
+    responses:
+      200:
+        description: Successfully updated the service request status.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      401:
+        description: Unauthorized access (not a professional).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      404:
+        description: Service request not found.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'professional':
     return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
@@ -1012,6 +2197,45 @@ def update_request_status(status,request_id):
 @jwt_required()
 @cache.cached()
 def get_reviews():
+  """
+    Retrieve the summary of reviews for all professionals.
+    This endpoint returns the list of professionals with their reviews.
+    ---
+    tags:
+      - Admin
+    responses:
+      200:
+        description: Successfully retrieved reviews data.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              full_name:
+                type: string
+                description: The full name of the professional.
+              reviews:
+                type: number
+                description: The average reviews score for the professional.
+      401:
+        description: Unauthorized access (not an admin).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'admin':
     return jsonify({"message": "Not an Admin!", "category": "danger"}), 401
@@ -1023,6 +2247,47 @@ def get_reviews():
 @jwt_required()
 @cache.cached()
 def get_service_requests():
+  """
+    Retrieve the count of service requests grouped by completion date.
+    This endpoint returns a summary of service requests, including the number of requests completed on each date.
+    ---
+    tags:
+      - Admin
+    responses:
+      200:
+        description: Successfully retrieved service request summary.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                description: The date of completion for service requests.
+                example: "2024-12-01"
+              count:
+                type: integer
+                description: The number of service requests completed on that date.
+                example: 15
+      401:
+        description: Unauthorized access (not an admin).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'admin':
     return jsonify({"message": "Not an Admin!", "category": "danger"}), 401
@@ -1034,6 +2299,54 @@ def get_service_requests():
 @jwt_required()
 @cache.memoize()
 def get_service_requests_customer(customer_id):
+  """
+    Retrieve the count of service requests for a specific customer, grouped by completion date.
+    This endpoint returns a summary of service requests completed for the given customer, including the number of requests completed on each date.
+    ---
+    tags:
+      - Customer
+    parameters:
+      - name: customer_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the customer whose service request summary is being retrieved.
+        example: 1
+    responses:
+      200:
+        description: Successfully retrieved service request summary for the customer.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                description: The date of completion for service requests.
+                example: "2024-12-01"
+              count:
+                type: integer
+                description: The number of service requests completed for the customer on that date.
+                example: 5
+      401:
+        description: Unauthorized access (not a customer or trying to access another customer's data).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'customer':
     return jsonify({"message": "Not a Customer!", "category": "danger"}), 401
@@ -1047,6 +2360,54 @@ def get_service_requests_customer(customer_id):
 @jwt_required()
 @cache.memoize()
 def get_reviews_professional(professional_id):
+  """
+    Retrieve the count of service requests for a specific customer, grouped by completion date.
+    This endpoint returns a summary of service requests completed for the given customer, including the number of requests completed on each date.
+    ---
+    tags:
+      - Professional
+    parameters:
+      - name: customer_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the customer whose service request summary is being retrieved.
+        example: 1
+    responses:
+      200:
+        description: Successfully retrieved service request summary for the customer.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                description: The date of completion for service requests.
+                example: "2024-12-01"
+              count:
+                type: integer
+                description: The number of service requests completed for the customer on that date.
+                example: 5
+      401:
+        description: Unauthorized access (not a customer or trying to access another customer's data).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'professional':
     return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
@@ -1060,6 +2421,54 @@ def get_reviews_professional(professional_id):
 @jwt_required()
 @cache.memoize()
 def get_service_requests_professional(professional_id):
+  """
+    Retrieve the count of service requests for a specific professional, grouped by completion date.
+    This endpoint returns a summary of service requests completed for the given professional, including the number of requests completed on each date.
+    ---
+    tags:
+      - Professional
+    parameters:
+      - name: professional_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the professional whose service request summary is being retrieved.
+        example: 1
+    responses:
+      200:
+        description: Successfully retrieved service request summary for the professional.
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                description: The date of completion for service requests.
+                example: "2024-12-01"
+              count:
+                type: integer
+                description: The number of service requests completed for the professional on that date.
+                example: 5
+      401:
+        description: Unauthorized access (not a professional or trying to access another professional's data).
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+      500:
+        description: Internal server error.
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            category:
+              type: string
+    """
   claims = get_jwt()
   if claims['role'] != 'professional':
     return jsonify({"message": "Not a Professional!", "category": "danger"}), 401
